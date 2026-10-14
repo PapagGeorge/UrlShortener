@@ -32,3 +32,22 @@ dotnet ef migrations add <Name> \
 ```
 
 A migration changes the schema the Read Service depends on. Check `ReadDbContext` and run the Read integration tests too.
+
+## Configuration (environment variables use `__`, e.g. `ConnectionStrings__Postgres`)
+
+| Key | Required | Notes |
+|---|---|---|
+| `ConnectionStrings:Postgres` | yes | Secret. Read/write user |
+| `ConnectionStrings:Redis` | yes | Secret if it has a password. The service starts even if Redis is down (`AbortOnConnectFail=false`): aliases keep working, generated codes fail with 500 |
+| `Obfuscation:Key` | yes | **Secret**, base64, at least 32 bytes. Generate with `openssl rand -base64 32`. **Never rotate it** once codes exist: it re-maps the whole code space |
+| `ShortUrl:PublicBaseUrl` | yes | e.g. `https://short.example`: absolute, no path. Its host is also used to reject URLs that point back at us |
+| `Database:MigrateOnStartup` | no (true) | Applies pending migrations at startup |
+| `Cleanup:Interval` / `Cleanup:BatchSize` | no (10 min / 1000) | Expired-URL cleanup job |
+| `Counter:BatchSize` / `Counter:RedisKey` | no (1000 / `urlshortener:counter`) | Id batching |
+
+Locally use `dotnet user-secrets` for the secret ones (never `appsettings*.json`). Options are validated at startup, so a missing or weak value stops the service immediately.
+
+## HTTP tests without Docker
+
+`tests/UrlShortener.WriteService.IntegrationTests/Api` hosts the real pipeline with only the repository and allocator replaced by in-memory fakes (`WriteApiFactory`), so it runs on the Mac. Tests that need real Postgres/Redis carry `[Trait("Category", "Integration")]` and run in CI.
+

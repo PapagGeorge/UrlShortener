@@ -10,7 +10,7 @@ namespace UrlShortener.WriteService.Application.CreateShortUrl;
 /// </summary>
 public sealed class CreateShortUrlCommandValidator : AbstractValidator<CreateShortUrlCommand>
 {
-    public CreateShortUrlCommandValidator(TimeProvider time)
+    public CreateShortUrlCommandValidator(TimeProvider time, PublicHost publicHost)
     {
         RuleFor(x => x.OriginalUrl).Custom((value, context) =>
         {
@@ -18,6 +18,14 @@ public sealed class CreateShortUrlCommandValidator : AbstractValidator<CreateSho
             if (result.IsFailure)
             {
                 context.AddFailure(new ValidationFailure(context.PropertyPath, result.Error.Description) { ErrorCode = result.Error.Code });
+            }
+            else if (PointsAtHost(result.Value, publicHost))
+            {
+                // A short link to ourselves is at best useless and at worst a redirect loop.
+                context.AddFailure(new ValidationFailure(context.PropertyPath, "The URL must not point to this service.")
+                {
+                    ErrorCode = "OriginalUrl.SelfReference",
+                });
             }
         });
 
@@ -43,4 +51,8 @@ public sealed class CreateShortUrlCommandValidator : AbstractValidator<CreateSho
                 }
             }));
     }
+
+    private static bool PointsAtHost(OriginalUrl url, PublicHost publicHost) =>
+        Uri.TryCreate(url.Value, UriKind.Absolute, out var uri)
+        && string.Equals(uri.Host, publicHost.Value, StringComparison.OrdinalIgnoreCase);
 }

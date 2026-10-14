@@ -9,7 +9,7 @@ public sealed class CreateShortUrlCommandValidatorTests
     private static readonly DateTimeOffset Now = new(2026, 10, 14, 12, 0, 0, TimeSpan.Zero);
     private const string LongUrl = "https://example.com/some/very/long/url";
 
-    private readonly CreateShortUrlCommandValidator _sut = new(new FakeTimeProvider(Now));
+    private readonly CreateShortUrlCommandValidator _sut = new(new FakeTimeProvider(Now), new PublicHost("short.test"));
 
     [Fact]
     public void Validate_UrlOnly_IsValid()
@@ -68,5 +68,27 @@ public sealed class CreateShortUrlCommandValidatorTests
         var result = _sut.Validate(new CreateShortUrlCommand("nope", "x", Now.AddDays(-1)));
 
         result.Errors.Select(e => e.PropertyName).ShouldBe(["OriginalUrl", "Alias", "ExpiresAt"], ignoreOrder: true);
+    }
+
+    [Theory]
+    [InlineData("https://short.test/abc1234")]
+    [InlineData("http://short.test:8080/x")]
+    [InlineData("https://SHORT.TEST/Mixed")]
+    public void Validate_UrlPointingAtOurOwnHost_FailsAsSelfReference(string url)
+    {
+        var result = _sut.Validate(new CreateShortUrlCommand(url, null, null));
+
+        var error = result.Errors.ShouldHaveSingleItem();
+        error.PropertyName.ShouldBe("OriginalUrl");
+        error.ErrorCode.ShouldBe("OriginalUrl.SelfReference");
+    }
+
+    [Theory]
+    [InlineData("https://other.test/abc1234")]
+    [InlineData("https://sub.short.test/abc")]       // a different host, not ours
+    [InlineData("https://short.test.evil.com/abc")]
+    public void Validate_UrlOnAnotherHost_IsValid(string url)
+    {
+        _sut.Validate(new CreateShortUrlCommand(url, null, null)).IsValid.ShouldBeTrue();
     }
 }

@@ -6,5 +6,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Application/UrlShortener.WriteService.Application.csproj" />
     <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Infrastructure/UrlShortener.WriteService.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Api/UrlShortener.WriteService.Api.csproj" />
   </ItemGroup>
 </Project>
