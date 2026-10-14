@@ -37,7 +37,8 @@ public sealed class ShortUrl
             return DomainErrors.ExpirationInPast;
         }
 
-        return new ShortUrl(shortCode, originalUrl, now, expiresAt, createdBy);
+        // Always UTC (offset 0): the database column is timestamptz and Npgsql rejects any other offset.
+        return new ShortUrl(shortCode, originalUrl, now.ToUniversalTime(), expiresAt?.ToUniversalTime(), createdBy);
     }
 
     /// <summary>A URL is expired from the exact moment of <see cref="ExpiresAt"/>.</summary>

@@ -66,4 +66,27 @@ public sealed class ShortUrlTests
 
         shortUrl.IsExpired(expiresAt.AddSeconds(secondsFromExpiry)).ShouldBe(expected);
     }
+
+    [Fact]
+    public void Create_ExpirationWithNonUtcOffset_IsStoredAsUtcSameInstant()
+    {
+        // Npgsql's timestamptz accepts only offset 0, so the Domain normalizes instead of failing at the database.
+        var expiresAt = new DateTimeOffset(2026, 10, 15, 14, 0, 0, TimeSpan.FromHours(2));
+
+        var shortUrl = ShortUrl.Create(Code, Url, Now, expiresAt).Value;
+
+        shortUrl.ExpiresAt!.Value.Offset.ShouldBe(TimeSpan.Zero);
+        shortUrl.ExpiresAt.Value.ShouldBe(expiresAt);
+    }
+
+    [Fact]
+    public void Create_CreatedAtWithNonUtcOffset_IsStoredAsUtc()
+    {
+        var now = new DateTimeOffset(2026, 10, 14, 15, 0, 0, TimeSpan.FromHours(3));
+
+        var shortUrl = ShortUrl.Create(Code, Url, now, null).Value;
+
+        shortUrl.CreatedAt.Offset.ShouldBe(TimeSpan.Zero);
+        shortUrl.CreatedAt.ShouldBe(now);
+    }
 }
