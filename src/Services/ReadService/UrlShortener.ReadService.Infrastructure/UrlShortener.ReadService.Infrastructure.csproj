@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../UrlShortener.ReadService.Application/UrlShortener.ReadService.Application.csproj" />
+  </ItemGroup>
+</Project>

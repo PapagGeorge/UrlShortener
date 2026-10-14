@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../UrlShortener.WriteService.Application/UrlShortener.WriteService.Application.csproj" />
+  </ItemGroup>
+</Project>
