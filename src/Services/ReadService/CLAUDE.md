@@ -26,3 +26,23 @@ dotnet test tests/UrlShortener.ReadService.IntegrationTests
 ```
 
 The integration tests create the schema with the Write Service migrations, so they prove that both services agree on the table.
+
+## Configuration (environment variables use `__`, e.g. `ConnectionStrings__Postgres`)
+
+| Key | Required | Notes |
+|---|---|---|
+| `ConnectionStrings:Postgres` | yes | **Secret.** Use the SELECT-only role `urlshortener_read` (`deploy/postgres/roles.sql`), never the write role |
+| `ConnectionStrings:Redis` | yes | Secret if it has a password. The service starts and redirects from the database even if Redis is down |
+| `Cache:DefaultTtl` | no (`1.00:00:00`) | Upper bound of a cached redirect; 1 s to 7 days. **Careful with TimeSpan syntax**: `24:00:00` means 24 *days*, use `1.00:00:00` |
+| `Cache:OperationTimeout` | no (`00:00:00.100`) | Per Redis operation, 10 ms to 5 s |
+
+Options are validated at startup. Do not log redirects per request: `appsettings.json` sets `UrlShortener.BuildingBlocks.Logging` to `Warning` (failures and exceptions still log).
+
+## Redis outage behaviour (do not undo)
+
+The connection uses `BacklogPolicy.FailFast`. StackExchange.Redis' default queues commands while disconnected and fails them about a second later whatever the timeout is, which made every redirect ~2 s slower (get + set). `RedisOutageLatencyTests` guards this without Docker.
+
+## HTTP tests without Docker
+
+`tests/UrlShortener.ReadService.IntegrationTests/Api/RedirectEndpointTests` hosts the real pipeline with only the repository and cache replaced by in-memory fakes. `ReadFullStackTests` and the other Postgres/Redis tests carry `[Trait("Category", "Integration")]` and run in CI.
+
