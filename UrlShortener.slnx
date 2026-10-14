@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/UrlShortener.Gateway/UrlShortener.Gateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/ReadService/">
+    <Project Path="src/Services/ReadService/UrlShortener.ReadService.Api/UrlShortener.ReadService.Api.csproj" />
+    <Project Path="src/Services/ReadService/UrlShortener.ReadService.Application/UrlShortener.ReadService.Application.csproj" />
+    <Project Path="src/Services/ReadService/UrlShortener.ReadService.Infrastructure/UrlShortener.ReadService.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/WriteService/">
+    <Project Path="src/Services/WriteService/UrlShortener.WriteService.Api/UrlShortener.WriteService.Api.csproj" />
+    <Project Path="src/Services/WriteService/UrlShortener.WriteService.Application/UrlShortener.WriteService.Application.csproj" />
+    <Project Path="src/Services/WriteService/UrlShortener.WriteService.Infrastructure/UrlShortener.WriteService.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/UrlShortener.BuildingBlocks/UrlShortener.BuildingBlocks.csproj" />
+    <Project Path="src/Shared/UrlShortener.Domain/UrlShortener.Domain.csproj" />
+    <Project Path="src/Shared/UrlShortener.ServiceDefaults/UrlShortener.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UrlShortener.ArchitectureTests/UrlShortener.ArchitectureTests.csproj" />
+    <Project Path="tests/UrlShortener.Domain.UnitTests/UrlShortener.Domain.UnitTests.csproj" />
+    <Project Path="tests/UrlShortener.ReadService.IntegrationTests/UrlShortener.ReadService.IntegrationTests.csproj" />
+    <Project Path="tests/UrlShortener.ReadService.UnitTests/UrlShortener.ReadService.UnitTests.csproj" />
+    <Project Path="tests/UrlShortener.WriteService.IntegrationTests/UrlShortener.WriteService.IntegrationTests.csproj" />
+    <Project Path="tests/UrlShortener.WriteService.UnitTests/UrlShortener.WriteService.UnitTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../UrlShortener.ReadService.Infrastructure/UrlShortener.ReadService.Infrastructure.csproj" />
+    <ProjectReference Include="../UrlShortener.ReadService.Application/UrlShortener.ReadService.Application.csproj" />
+    <ProjectReference Include="../../../Shared/UrlShortener.ServiceDefaults/UrlShortener.ServiceDefaults.csproj" />
+  </ItemGroup>
+</Project>
