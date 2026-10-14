@@ -3,6 +3,9 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- The dev machine runs no Docker: integration tests are excluded unless CI=true (GitHub Actions sets it).
+         An explicit filter passed to dotnet test still overrides this. -->
+    <VSTestTestCaseFilter Condition="'$(CI)' != 'true' And '$(VSTestTestCaseFilter)' == ''">Category!=Integration</VSTestTestCaseFilter>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

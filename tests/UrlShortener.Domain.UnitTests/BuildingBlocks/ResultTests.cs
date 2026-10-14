@@ -66,3 +66,22 @@ public sealed class ResultTests
         Should.Throw<ArgumentNullException>(() => Result<string>.Success(null!));
     }
 }
+
+public sealed class ErrorTests
+{
+    [Fact]
+    public void Error_WithoutDetails_HasNullDetails()
+    {
+        new Error("Some.Error", "desc", ErrorType.Failure).Details.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Error_WithDetails_ExposesFieldMessages()
+    {
+        var details = new Dictionary<string, string[]> { ["OriginalUrl"] = ["must be a URL"] };
+
+        var error = new Error("Validation.Failed", "invalid", ErrorType.Validation, details);
+
+        error.Details.ShouldNotBeNull()["OriginalUrl"].ShouldBe(["must be a URL"]);
+    }
+}

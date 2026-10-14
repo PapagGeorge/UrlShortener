@@ -128,7 +128,7 @@ Required tests (from `architecture.md`): `Decode(Encode(x)) == x`; always 7 char
 - `RedisIdAllocator`: holds `(next, end)` of the current batch. `NextAsync`: fast path `Interlocked`-free under a `SemaphoreSlim(1,1)`; when exhausted, `INCRBY counter 1000` → `end = result`, `next = end - 999`.
 - Counter key `urlshortener:counter`. Start value: first batch begins at `1` (id 0 unused; acceptable).
 - Guard: if any ID in the batch would be `≥ N` → throw `CounterExhaustedException` (fails loudly, health check goes unhealthy).
-- Redis down → throws; handler returns `Failure` (500). Alias creation does **not** need Redis and keeps working (nice degradation property; test it).
+- Redis down → the allocator throws and the exception propagates (global exception handler → 500, logged by the logging decorator). Alias creation does **not** need Redis and keeps working (nice degradation property).
 - Metric `counter_batches_reserved` incremented per refill.
 - Optional later: lower batch size or "refill ahead" at 80% to avoid latency spikes.
 
