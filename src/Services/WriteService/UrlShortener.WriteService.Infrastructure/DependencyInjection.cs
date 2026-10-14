@@ -3,8 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using StackExchange.Redis;
 using UrlShortener.WriteService.Application.Ports;
 using UrlShortener.WriteService.Infrastructure.Cleanup;
+using UrlShortener.WriteService.Infrastructure.Codes;
 using UrlShortener.WriteService.Infrastructure.Persistence;
 
 namespace UrlShortener.WriteService.Infrastructure;
@@ -26,6 +28,43 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(CleanupOptions.SectionName))
             .ValidateOnStart();
         services.AddHostedService<ExpiredUrlCleanupService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers code generation: the Redis-backed id allocator and the keyed obfuscator.
+    /// Reads <c>ConnectionStrings:Redis</c>, <c>Obfuscation:Key</c> (secret) and the optional <c>Counter</c> section.
+    /// </summary>
+    public static IServiceCollection AddWriteCodeGeneration(this IServiceCollection services, IConfiguration configuration)
+    {
+        var redisConnectionString = configuration.GetConnectionString("Redis")
+            ?? throw new InvalidOperationException("The connection string 'ConnectionStrings:Redis' is not configured.");
+
+        services.AddSingleton<IValidateOptions<ObfuscationOptions>, ObfuscationOptionsValidator>();
+        services.AddSingleton<IValidateOptions<CounterOptions>, CounterOptionsValidator>();
+        services.AddOptions<ObfuscationOptions>().Bind(configuration.GetSection(ObfuscationOptions.SectionName)).ValidateOnStart();
+        services.AddOptions<CounterOptions>().Bind(configuration.GetSection(CounterOptions.SectionName)).ValidateOnStart();
+
+        // AbortOnConnectFail=false: the service starts and serves aliases even while Redis is down; the connection is retried in the background.
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        {
+            var options = ConfigurationOptions.Parse(redisConnectionString);
+            options.AbortOnConnectFail = false;
+            return ConnectionMultiplexer.Connect(options);
+        });
+
+        services.AddSingleton<ICounterStore>(sp => new RedisCounterStore(
+            sp.GetRequiredService<IConnectionMultiplexer>(),
+            sp.GetRequiredService<IOptions<CounterOptions>>().Value.RedisKey));
+
+        // Singleton: every request shares one batch of ids.
+        services.AddSingleton<IIdAllocator>(sp => new BatchingIdAllocator(
+            sp.GetRequiredService<ICounterStore>(),
+            sp.GetRequiredService<IOptions<CounterOptions>>().Value.BatchSize));
+
+        services.AddSingleton<ICodeObfuscator>(sp =>
+            new FeistelCodeObfuscator(sp.GetRequiredService<IOptions<ObfuscationOptions>>().Value.GetKeyBytes()));
 
         return services;
     }

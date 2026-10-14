@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Redis" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Application/UrlShortener.WriteService.Application.csproj" />
     <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Infrastructure/UrlShortener.WriteService.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Api/UrlShortener.WriteService.Api.csproj" />
   </ItemGroup>
 </Project>
