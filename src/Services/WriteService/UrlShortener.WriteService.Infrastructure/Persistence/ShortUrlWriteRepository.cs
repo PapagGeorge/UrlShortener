@@ -18,8 +18,13 @@ public sealed class ShortUrlWriteRepository(WriteDbContext context) : IShortUrlW
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             // The primary key is the final arbiter: a taken alias (or a colliding generated code) is an expected outcome, never a 500.
-            context.Entry(shortUrl).State = EntityState.Detached;
             return false;
+        }
+        finally
+        {
+            // Write-only: never keep the entity tracked, otherwise a later add with the same key in this context
+            // would fail inside EF instead of reaching the database and being reported as a duplicate.
+            context.Entry(shortUrl).State = EntityState.Detached;
         }
     }
 
