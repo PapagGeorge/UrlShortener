@@ -22,6 +22,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/UrlShortener.ArchitectureTests/UrlShortener.ArchitectureTests.csproj" />
     <Project Path="tests/UrlShortener.Domain.UnitTests/UrlShortener.Domain.UnitTests.csproj" />
+    <Project Path="tests/UrlShortener.Gateway.Tests/UrlShortener.Gateway.Tests.csproj" />
     <Project Path="tests/UrlShortener.ReadService.IntegrationTests/UrlShortener.ReadService.IntegrationTests.csproj" />
     <Project Path="tests/UrlShortener.ReadService.UnitTests/UrlShortener.ReadService.UnitTests.csproj" />
     <Project Path="tests/UrlShortener.WriteService.IntegrationTests/UrlShortener.WriteService.IntegrationTests.csproj" />
