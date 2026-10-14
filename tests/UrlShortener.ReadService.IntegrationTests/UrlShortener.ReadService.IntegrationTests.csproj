@@ -1,1 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Redis" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Services/ReadService/UrlShortener.ReadService.Application/UrlShortener.ReadService.Application.csproj" />
+    <ProjectReference Include="../../src/Services/ReadService/UrlShortener.ReadService.Infrastructure/UrlShortener.ReadService.Infrastructure.csproj" />
+    <!-- Test-only: the schema is built with the Write Service's own migrations, so a mismatch between the two services breaks a test, not production. -->
+    <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Infrastructure/UrlShortener.WriteService.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

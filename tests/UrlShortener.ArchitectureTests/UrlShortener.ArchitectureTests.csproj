@@ -3,5 +3,7 @@
     <PackageReference Include="NetArchTest.Rules" />
     <ProjectReference Include="../../src/Shared/UrlShortener.Domain/UrlShortener.Domain.csproj" />
     <ProjectReference Include="../../src/Shared/UrlShortener.BuildingBlocks/UrlShortener.BuildingBlocks.csproj" />
+    <ProjectReference Include="../../src/Services/ReadService/UrlShortener.ReadService.Infrastructure/UrlShortener.ReadService.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Infrastructure/UrlShortener.WriteService.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
