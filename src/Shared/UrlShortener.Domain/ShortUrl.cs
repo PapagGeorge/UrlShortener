@@ -42,5 +42,8 @@ public sealed class ShortUrl
     }
 
     /// <summary>A URL is expired from the exact moment of <see cref="ExpiresAt"/>.</summary>
-    public bool IsExpired(DateTimeOffset now) => ExpiresAt is not null && ExpiresAt <= now;
+    public bool IsExpired(DateTimeOffset now) => IsExpired(ExpiresAt, now);
+
+    /// <summary>The single expiry rule, also used by read models that never load the whole entity.</summary>
+    public static bool IsExpired(DateTimeOffset? expiresAt, DateTimeOffset now) => expiresAt is not null && expiresAt <= now;
 }
