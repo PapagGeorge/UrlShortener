@@ -89,4 +89,17 @@ public sealed class ShortUrlTests
         shortUrl.CreatedAt.Offset.ShouldBe(TimeSpan.Zero);
         shortUrl.CreatedAt.ShouldBe(now);
     }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(-1, false)]   // one second before expiry
+    [InlineData(0, true)]     // exactly at expiry
+    [InlineData(1, true)]
+    public void IsExpired_Static_SharesTheRuleWithTheInstanceMethod(int? secondsFromExpiry, bool expected)
+    {
+        DateTimeOffset? expiresAt = secondsFromExpiry is null ? null : Now;
+        var now = Now.AddSeconds(secondsFromExpiry ?? 1000);
+
+        ShortUrl.IsExpired(expiresAt, now).ShouldBe(expected);
+    }
 }
