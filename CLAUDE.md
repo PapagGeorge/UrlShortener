@@ -48,7 +48,7 @@ docs/  deploy/  .github/workflows/
 
 ## Dependency rules (enforced by ArchitectureTests)
 
-- `Domain` → nothing. `BuildingBlocks` → only `Microsoft.Extensions.Logging.Abstractions`.
+- `BuildingBlocks` → only `Microsoft.Extensions.Logging.Abstractions`. `Domain` → only `BuildingBlocks` (for `Result<T>` and typed errors), no packages.
 - `X.Application` → `Domain`, `BuildingBlocks`.
 - `X.Infrastructure` → `X.Application`, plus infrastructure packages.
 - `X.Api` → `X.Infrastructure`, `X.Application`, `ServiceDefaults`.
@@ -59,7 +59,7 @@ docs/  deploy/  .github/workflows/
 - `ShortUrl`: `ShortCode`, `OriginalUrl`, `CreatedAt`, `ExpiresAt?`, `CreatedBy?`.
 - Value objects validate themselves on creation and are the last line of defense.
 - `IsExpired(DateTimeOffset now)` lives on the entity. Never call `DateTime.Now` or `UtcNow`; inject `TimeProvider`.
-- Expected failures are typed errors returned in `Result<T>`, not exceptions.
+- Expected failures are typed errors returned in `Result<T>` (from BuildingBlocks), not exceptions.
 - Keep the Domain small: a change here forces both services to redeploy.
 
 ## HTTP contract
