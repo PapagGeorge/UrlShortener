@@ -41,12 +41,36 @@ public sealed class ReadInfrastructureRegistrationTests
     }
 
     [Fact]
-    public void Repository_IsRegisteredPerScope()
+    public void Repository_IsASingletonThatCoalescesConcurrentLookups()
+    {
+        using var provider = Build(Config((Postgres, AnyPostgres), (Redis, AnyRedis)));
+
+        var repository = provider.GetRequiredService<IShortUrlReadRepository>();
+
+        repository.ShouldBeOfType<SingleFlightShortUrlReadRepository>();
+        provider.GetRequiredService<IShortUrlReadRepository>().ShouldBeSameAs(repository);
+    }
+
+    [Fact]
+    public void PostgresPool_DefaultsToABoundedSize_SoABurstQueuesInsteadOfExhaustingTheDatabase()
     {
         using var provider = Build(Config((Postgres, AnyPostgres), (Redis, AnyRedis)));
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<IShortUrlReadRepository>().ShouldBeOfType<ShortUrlReadRepository>();
+        var connectionString = scope.ServiceProvider.GetRequiredService<ReadDbContext>().Database.GetConnectionString();
+
+        new Npgsql.NpgsqlConnectionStringBuilder(connectionString).MaxPoolSize.ShouldBe(32);
+    }
+
+    [Fact]
+    public void PostgresPool_AnExplicitSizeInTheConnectionStringWins()
+    {
+        using var provider = Build(Config((Postgres, AnyPostgres + ";Maximum Pool Size=7"), (Redis, AnyRedis)));
+        using var scope = provider.CreateScope();
+
+        var connectionString = scope.ServiceProvider.GetRequiredService<ReadDbContext>().Database.GetConnectionString();
+
+        new Npgsql.NpgsqlConnectionStringBuilder(connectionString).MaxPoolSize.ShouldBe(7);
     }
 
     [Fact]

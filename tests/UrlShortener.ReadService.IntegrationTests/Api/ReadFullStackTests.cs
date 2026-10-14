@@ -123,6 +123,23 @@ public sealed class ReadFullStackTests(ReadStackFixture stack) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Get_ColdCacheBurstOfManyDifferentCodes_AllRedirect_BecauseTheExcessWaitsInThePool()
+    {
+        // 150 different codes at once with nothing cached: each needs its own query, so this is what the bounded connection pool protects.
+        var codes = Enumerable.Range(0, 150).Select(i => $"cold{i:D4}-x").ToArray();
+        foreach (var code in codes)
+        {
+            await stack.SeedAsync(code, $"https://example.com/{code}");
+        }
+
+        using var client = Client();
+        var responses = await Task.WhenAll(codes.Select(code => client.GetAsync($"/{code}")));
+
+        var summary = string.Join(", ", responses.GroupBy(r => (int)r.StatusCode).Select(g => $"{g.Key}: {g.Count()}"));
+        responses.ShouldAllBe(r => r.StatusCode == HttpStatusCode.Found, $"statuses [{summary}]");
+    }
+
+    [Fact]
     public async Task Get_WhenRedisIsDown_StillRedirectsFromTheDatabaseAndStaysFast()
     {
         await stack.SeedAsync("0aZ9xYb", "https://example.com/target");
