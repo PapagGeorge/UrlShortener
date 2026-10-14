@@ -2,7 +2,7 @@
 
 Companion to [`system-design.md`](system-design.md) (the *why*) and [`architecture.md`](architecture.md) (the *what*).
 This document is the *how and in what order*: types, contracts, algorithms, failure modes, and a phased TDD plan.
-Status: **draft, nothing implemented yet** (only docs and per-service `CLAUDE.md` exist).
+Status: see [`status.md`](status.md) for the current phase, open decisions and how to resume. (Phases 0–5 are implemented; this document is the plan they followed.)
 
 ---
 
