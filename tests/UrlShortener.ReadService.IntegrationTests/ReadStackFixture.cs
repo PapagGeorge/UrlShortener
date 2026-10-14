@@ -41,7 +41,8 @@ public sealed class ReadStackFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
-        Redis = await ConnectionMultiplexer.ConnectAsync(RedisConnectionString);
+        // Admin mode only for the test fixture, so ResetAsync may FLUSHDB. The code under test never needs it.
+        Redis = await ConnectionMultiplexer.ConnectAsync(new ConfigurationOptions { EndPoints = { RedisConnectionString }, AllowAdmin = true });
 
         await using (var admin = new NpgsqlDataSourceBuilder(AdminConnectionString).Build())
         {
