@@ -87,7 +87,9 @@ public sealed class CreateShortUrlFullStackTests(FullStackFixture stack) : IAsyn
 
         var responses = await Task.WhenAll(Enumerable.Range(0, 60).Select(i => Create(client, new { originalUrl = $"https://example.com/{i}" })));
 
-        responses.ShouldAllBe(r => r.StatusCode == HttpStatusCode.Created);
+        var failed = responses.FirstOrDefault(r => r.StatusCode != HttpStatusCode.Created);
+        var summary = string.Join(", ", responses.GroupBy(r => (int)r.StatusCode).Select(g => $"{g.Key}: {g.Count()}"));
+        (failed is null).ShouldBeTrue($"statuses [{summary}]; first failure body: {(failed is null ? "" : await failed.Content.ReadAsStringAsync())}");
         (await Task.WhenAll(responses.Select(Code))).Distinct().Count().ShouldBe(60);
         (await RowCount()).ShouldBe(60);
         (await CounterValue()).ShouldBe(1000L);   // a single reserved batch

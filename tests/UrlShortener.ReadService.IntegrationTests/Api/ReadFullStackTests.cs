@@ -117,7 +117,9 @@ public sealed class ReadFullStackTests(ReadStackFixture stack) : IAsyncLifetime
 
         var responses = await Task.WhenAll(Enumerable.Range(0, 200).Select(_ => client.GetAsync("/0aZ9xYb")));
 
-        responses.ShouldAllBe(r => r.StatusCode == HttpStatusCode.Found);
+        var failed = responses.FirstOrDefault(r => r.StatusCode != HttpStatusCode.Found);
+        var summary = string.Join(", ", responses.GroupBy(r => (int)r.StatusCode).Select(g => $"{g.Key}: {g.Count()}"));
+        (failed is null).ShouldBeTrue($"statuses [{summary}]; first failure body: {(failed is null ? "" : await failed.Content.ReadAsStringAsync())}");
     }
 
     [Fact]
