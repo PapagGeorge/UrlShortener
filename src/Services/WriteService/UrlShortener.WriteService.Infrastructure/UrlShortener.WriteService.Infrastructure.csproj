@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../UrlShortener.WriteService.Application/UrlShortener.WriteService.Application.csproj" />
   </ItemGroup>
 </Project>
