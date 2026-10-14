@@ -1,1 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.Redis" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Application/UrlShortener.WriteService.Application.csproj" />
+    <ProjectReference Include="../../src/Services/WriteService/UrlShortener.WriteService.Infrastructure/UrlShortener.WriteService.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

@@ -79,15 +79,17 @@ docs/  deploy/  .github/workflows/
 
 - Domain: pure unit tests. Application: handler and validator tests with NSubstitute for the ports.
 - Integration: Testcontainers (real Postgres and Redis) + `WebApplicationFactory` of that service. No EF InMemory provider.
+- **The dev Mac never runs Docker.** Every integration test class carries `[Trait("Category", "Integration")]`. Locally run `dotnet test --filter "Category!=Integration"`; CI (`ubuntu-latest`, which has Docker) runs everything. Never start Docker or Docker Desktop on the Mac.
 - Test naming: `MethodOrScenario_Condition_ExpectedResult`.
 
 ## Commands
 
 ```bash
 dotnet build
-dotnet test
+dotnet test --filter "Category!=Integration"   # on the Mac: unit + architecture tests only
 dotnet test tests/UrlShortener.Domain.UnitTests
-docker compose up --build      # local: all services + Postgres, Redis, Jaeger, Prometheus
+# Integration tests and `docker compose up --build` (services + Postgres, Redis, Jaeger, Prometheus)
+# run in CI and on the Linux box, never on the Mac. See docs/deployment.md.
 ```
 
 ## Git
@@ -100,7 +102,7 @@ docker compose up --build      # local: all services + Postgres, Redis, Jaeger, 
 - Before you implement a feature: say which service(s) and layer(s) it touches and list the tests you'll write first.
 - Work in small steps: one failing test, the code that passes it, then a green build. Don't scaffold whole layers ahead of the tests.
 - Ask before you add a NuGet package or change the solution layout.
-- Run `dotnet build` and `dotnet test` before you say a step is done.
+- Run `dotnet build` and `dotnet test --filter "Category!=Integration"` before you say a step is done. Integration tests are verified by CI on the PR; say so explicitly instead of claiming they passed.
 - If a decision in these files turns out to be wrong in practice, raise it. Don't silently diverge.
 
 ## Out of scope (for now)

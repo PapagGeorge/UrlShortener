@@ -244,6 +244,8 @@ Because the Domain `ShortUrl` is shared, decide in Phase 4 whether Read maps the
 | Architecture | `ArchitectureTests` | NetArchTest | all rules in `CLAUDE.md`, plus "Domain/Application have no reference to EF/Redis/ASP.NET/OTel" |
 | E2E smoke | compose-based (CI optional) | HTTP | create → redirect → expire → 410 |
 
+**Where tests run:** the dev Mac runs no Docker, so integration tests carry `[Trait("Category", "Integration")]` and run in CI and on the Linux box only (see `deployment.md`).
+
 Shared test fixtures: one Postgres + one Redis container per test collection; `FakeTimeProvider` (Microsoft.Extensions.TimeProvider.Testing: confirm before adding).
 
 ---

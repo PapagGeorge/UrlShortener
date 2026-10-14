@@ -11,7 +11,7 @@ MacBook M1 (Rider) ──git push──▶ GitHub (public repo)
 Ubuntu x86 box ◀──── docker compose pull (systemd timer) ─────────────────────┘
 ```
 
-- **Mac**: development only. Deployment images are never built on the Mac.
+- **Mac**: development only, no Docker. Deployment images are never built on the Mac.
 - **GitHub**: GitHub-hosted runners only. They build the images natively on `ubuntu-latest` (x86) and push them to GHCR.
 - **Ubuntu box**: **pull-based**. GitHub never reaches into the box: there is no self-hosted runner and no open inbound port.
 
@@ -36,12 +36,30 @@ Ubuntu x86 box ◀──── docker compose pull (systemd timer) ────�
 - Pin actions to a major version (e.g. `actions/checkout@v4`).
 - Protect `main` with a branch protection rule that requires CI to pass.
 
-## Local development (`docker-compose.yml`)
+## Where things run
 
-- Builds the images from source.
+| Environment | Runs | Docker? |
+|---|---|---|
+| **Dev Mac** | Rider, `dotnet build`, unit + architecture tests (`--filter "Category!=Integration"`) | **No, never** |
+| **GitHub Actions** | Everything, including integration tests (Testcontainers) | Yes (`ubuntu-latest`) |
+| **Linux box** | The full compose stack and manual SIT (system integration testing) | Yes |
+
+## Compose stack (`docker-compose.yml`, for the Linux box)
+
+- Builds the images from source (or pulls them, see `deploy/`).
 - Services: `gateway`, `read-service`, `write-service`, `postgres`, `redis`, `jaeger`, `prometheus`.
 - Only the gateway and the UIs (Jaeger, Prometheus) expose ports. The services talk over the internal network.
-- Testcontainers needs a running Docker daemon (Docker Desktop or Colima on the Mac).
+- Integration tests mark themselves `[Trait("Category", "Integration")]`. They are the only tests that need a Docker daemon.
+
+## Running integration tests
+
+1. **Automatically, on every PR**: `ci.yml` runs them on GitHub's runners. This is the default and needs nothing from the Mac.
+2. **On the Linux box** (ad hoc, e.g. against a feature branch): `git fetch && git checkout <branch> && dotnet test` (needs the .NET 10 SDK there), or without installing the SDK:
+   `docker run --rm -v "$PWD":/src -w /src -v /var/run/docker.sock:/var/run/docker.sock mcr.microsoft.com/dotnet/sdk:10.0 dotnet test`
+3. **From the Mac against the Linux box's Docker** (optional, no local Docker): point Testcontainers at the remote daemon, e.g. an SSH-forwarded socket plus `TESTCONTAINERS_HOST_OVERRIDE=<linux-box-address>`. Only on a trusted network, and never expose the Docker API publicly.
+4. **SIT**: `docker compose up -d --build` on the Linux box and exercise the real HTTP flow (create, redirect, expire).
+
+Avoid running heavy test containers on the same Docker host as production if the box is small. Use a separate compose project name and different ports.
 
 ## Ubuntu box (`deploy/`)
 
