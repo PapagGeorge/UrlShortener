@@ -1,2 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../UrlShortener.BuildingBlocks/UrlShortener.BuildingBlocks.csproj" />
+  </ItemGroup>
 </Project>

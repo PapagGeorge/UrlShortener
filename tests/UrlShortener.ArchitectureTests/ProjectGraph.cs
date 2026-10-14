@@ -78,7 +78,7 @@ internal sealed class ProjectGraph
             FrameworkReferences: Collect("FrameworkReference", "Include", v => v));
     }
 
-    private static string FindRepositoryRoot()
+    internal static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "global.json")))

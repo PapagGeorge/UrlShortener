@@ -26,7 +26,7 @@ Status: **draft, nothing implemented yet** (only docs and per-service `CLAUDE.md
 Matches `CLAUDE.md`. Project references (enforced by `ArchitectureTests`):
 
 ```text
-Domain            → ∅
+Domain            → BuildingBlocks (for Result<T> and typed errors; no packages)
 BuildingBlocks    → Microsoft.Extensions.Logging.Abstractions
 ServiceDefaults   → OpenTelemetry + ASP.NET Core packages
 X.Application     → Domain, BuildingBlocks (+ FluentValidation in Write only)
@@ -100,7 +100,7 @@ POST /urls
 
 1. (Validation decorator has already run.)
 2. `now = timeProvider.GetUtcNow()`.
-3. If `alias` given → `code = Alias.Create(alias)`; else `id = await allocator.NextAsync(ct)` → `code = obfuscator.ToCode(id)`.
+3. If `alias` given → `code = Alias.Create(alias)`; else `id = await allocator.NextAsync(ct)` → `code = obfuscator.ToCode(id)`. A generated code can, with probability ~1 in 3.5·10¹², equal a reserved word such as `swagger` or `openapi` (all 7 characters, valid base62): if `code.IsReserved`, allocate another ID. Aliases cannot hit this because of the 8-character minimum.
 4. `ShortUrl.Create(...)` → `repository.AddAsync(...)`.
 5. Repository returns `Result` (`Conflict` on PK violation `23505`).
 6. Alias path: conflict → `AliasTaken` (409). Generated path: conflict → **allocate a fresh ID and retry, max 3 attempts**, then `Failure` (500) + error log (P4).

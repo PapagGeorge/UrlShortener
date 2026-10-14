@@ -1,0 +1,45 @@
+using UrlShortener.BuildingBlocks.Results;
+
+namespace UrlShortener.Domain;
+
+/// <summary>The mapping from a <see cref="Domain.ShortCode"/> to an <see cref="Domain.OriginalUrl"/>, with an optional expiration.</summary>
+public sealed class ShortUrl
+{
+    private ShortUrl(ShortCode shortCode, OriginalUrl originalUrl, DateTimeOffset createdAt, DateTimeOffset? expiresAt, string? createdBy)
+    {
+        ShortCode = shortCode;
+        OriginalUrl = originalUrl;
+        CreatedAt = createdAt;
+        ExpiresAt = expiresAt;
+        CreatedBy = createdBy;
+    }
+
+    public ShortCode ShortCode { get; }
+
+    public OriginalUrl OriginalUrl { get; }
+
+    public DateTimeOffset CreatedAt { get; }
+
+    public DateTimeOffset? ExpiresAt { get; }
+
+    public string? CreatedBy { get; }
+
+    /// <param name="now">Supplied by the caller (from <see cref="TimeProvider"/>); the Domain never reads the clock.</param>
+    public static Result<ShortUrl> Create(
+        ShortCode shortCode,
+        OriginalUrl originalUrl,
+        DateTimeOffset now,
+        DateTimeOffset? expiresAt,
+        string? createdBy = null)
+    {
+        if (expiresAt is not null && expiresAt <= now)
+        {
+            return DomainErrors.ExpirationInPast;
+        }
+
+        return new ShortUrl(shortCode, originalUrl, now, expiresAt, createdBy);
+    }
+
+    /// <summary>A URL is expired from the exact moment of <see cref="ExpiresAt"/>.</summary>
+    public bool IsExpired(DateTimeOffset now) => ExpiresAt is not null && ExpiresAt <= now;
+}

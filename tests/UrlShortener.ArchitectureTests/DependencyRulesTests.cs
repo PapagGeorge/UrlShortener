@@ -39,11 +39,11 @@ public sealed class DependencyRulesTests
     }
 
     [Fact]
-    public void Domain_HasNoDependencies()
+    public void Domain_DependsOnlyOnBuildingBlocks()
     {
         var domain = Graph.Get(Domain);
 
-        domain.ProjectReferences.ShouldBeEmpty();
+        domain.ProjectReferences.ShouldBeSubsetOf([BuildingBlocks]);
         domain.PackageReferences.ShouldBeEmpty();
         domain.FrameworkReferences.ShouldBeEmpty();
     }
