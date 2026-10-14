@@ -7,6 +7,7 @@ A Bit.ly-style URL shortener: a portfolio and practice project for system design
 
 | Before you work on… | Read |
 |---|---|
+| **Starting a session / picking the work up again** | `docs/status.md` (current phase, next steps, open decisions) |
 | Any architectural change | `docs/system-design.md`, `docs/architecture.md` |
 | Short codes, aliases, the shared DB, observability | `docs/architecture.md` |
 | Dockerfiles, compose, GitHub workflows, secrets | `docs/deployment.md` |
