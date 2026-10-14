@@ -15,13 +15,16 @@ internal static class ReadInfrastructureOptions
 {
     /// <summary>
     /// AbortOnConnectFail=false: the service starts and serves redirects from the database even while Redis is down.
-    /// Short timeouts keep a sick Redis from slowing redirects.
+    /// Short timeouts and FailFast keep a sick or absent Redis from slowing redirects.
     /// </summary>
     public static ConfigurationOptions RedisOptions(string connectionString, ReadCacheOptions cache)
     {
         var options = ConfigurationOptions.Parse(connectionString);
         var timeout = (int)cache.OperationTimeout.TotalMilliseconds;
         options.AbortOnConnectFail = false;
+        // Without this, commands issued while Redis is down wait in a backlog and fail about a second later whatever the timeout is,
+        // which would add ~2 s (get + set) to every redirect. FailFast fails them immediately, so the redirect falls back to the database.
+        options.BacklogPolicy = BacklogPolicy.FailFast;
         options.AsyncTimeout = timeout;
         options.SyncTimeout = timeout;
         options.ConnectTimeout = Math.Min(timeout * 10, 2000);
