@@ -11,7 +11,7 @@ A Bit.ly-style URL shortener: a portfolio and practice project for system design
 | Short codes, aliases, the shared DB, observability | `docs/architecture.md` |
 | Dockerfiles, compose, GitHub workflows, secrets | `docs/deployment.md` |
 
-Each service has its own `CLAUDE.md` in `src/Services/<Service>/` with the rules specific to it.
+Each service has its own `CLAUDE.md` in `src/Services/<Service>/` (and the Gateway in `src/Gateway/`) with the rules specific to it.
 
 ## Non-negotiables
 
@@ -42,6 +42,7 @@ tests/
   UrlShortener.Domain.UnitTests/
   UrlShortener.{Write,Read}Service.UnitTests/
   UrlShortener.{Write,Read}Service.IntegrationTests/
+  UrlShortener.Gateway.Tests/
   UrlShortener.ArchitectureTests/
 docs/  deploy/  .github/workflows/
 ```
