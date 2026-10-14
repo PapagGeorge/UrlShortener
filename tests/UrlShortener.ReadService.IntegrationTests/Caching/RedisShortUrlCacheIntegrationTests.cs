@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
 using UrlShortener.Domain;
 using UrlShortener.ReadService.Application;
+using UrlShortener.ReadService.Infrastructure;
 using UrlShortener.ReadService.Infrastructure.Caching;
 
 namespace UrlShortener.ReadService.IntegrationTests.Caching;
@@ -83,10 +84,8 @@ public sealed class RedisShortUrlCacheIntegrationTests(ReadStackFixture stack) :
     [Fact]
     public async Task WhenRedisIsUnreachable_ReadsAreMissesAndWritesAreSkippedQuickly()
     {
-        var options = ConfigurationOptions.Parse("redis-down.invalid:6379");
-        options.AbortOnConnectFail = false;
-        options.ConnectTimeout = 500;
-        options.AsyncTimeout = 200;
+        // The exact options production uses, so this proves the real fail-fast behaviour.
+        var options = ReadInfrastructureOptions.RedisOptions("redis-down.invalid:6379", new ReadCacheOptions());
         await using var unreachable = await ConnectionMultiplexer.ConnectAsync(options);
         var cache = new RedisShortUrlCache(unreachable, NullLogger<RedisShortUrlCache>.Instance);
 
@@ -94,6 +93,6 @@ public sealed class RedisShortUrlCacheIntegrationTests(ReadStackFixture stack) :
         (await cache.GetAsync(Code, default)).ShouldBeNull();
         await Should.NotThrowAsync(() => cache.SetAsync(Code, new RedirectTarget("https://e.com", null), TimeSpan.FromHours(1), default));
 
-        (DateTime.UtcNow - started).ShouldBeLessThan(TimeSpan.FromSeconds(3));
+        (DateTime.UtcNow - started).ShouldBeLessThan(TimeSpan.FromSeconds(1));
     }
 }

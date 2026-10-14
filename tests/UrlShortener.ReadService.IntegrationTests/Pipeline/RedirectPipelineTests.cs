@@ -4,6 +4,7 @@ using StackExchange.Redis;
 using UrlShortener.BuildingBlocks.Results;
 using UrlShortener.ReadService.Application;
 using UrlShortener.ReadService.Application.GetOriginalUrl;
+using UrlShortener.ReadService.Infrastructure;
 using UrlShortener.ReadService.Infrastructure.Caching;
 using UrlShortener.ReadService.Infrastructure.Persistence;
 
@@ -139,10 +140,8 @@ public sealed class RedirectPipelineTests(ReadStackFixture stack) : IAsyncLifeti
     public async Task WhenRedisIsDown_RedirectsStillWorkFromTheDatabase()
     {
         await stack.SeedAsync("0aZ9xYb", "https://example.com/target");
-        var options = ConfigurationOptions.Parse("redis-down.invalid:6379");
-        options.AbortOnConnectFail = false;
-        options.ConnectTimeout = 500;
-        options.AsyncTimeout = 200;
+        // The exact options production uses, so this proves the real fail-fast behaviour.
+        var options = ReadInfrastructureOptions.RedisOptions("redis-down.invalid:6379", new ReadCacheOptions());
         await using var unreachable = await ConnectionMultiplexer.ConnectAsync(options);
 
         var result = await Query("0aZ9xYb", unreachable);
