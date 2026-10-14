@@ -1,8 +1,9 @@
+using Microsoft.AspNetCore.Http;
 using UrlShortener.BuildingBlocks.Results;
 
-namespace UrlShortener.WriteService.Api.Endpoints;
+namespace UrlShortener.ServiceDefaults;
 
-internal static class ErrorHttpExtensions
+public static class ErrorHttpExtensions
 {
     /// <summary>Maps an expected failure to an RFC 9457 problem. The stable <c>Error.Code</c> is exposed as the <c>code</c> extension.</summary>
     public static IResult ToProblem(this Error error)

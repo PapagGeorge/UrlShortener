@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using UrlShortener.BuildingBlocks.Messaging;
+using UrlShortener.ServiceDefaults;
 using UrlShortener.WriteService.Api.Options;
 using UrlShortener.WriteService.Application.CreateShortUrl;
 

@@ -2,4 +2,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../UrlShortener.BuildingBlocks/UrlShortener.BuildingBlocks.csproj" />
+  </ItemGroup>
 </Project>
