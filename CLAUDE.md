@@ -79,7 +79,7 @@ docs/  deploy/  .github/workflows/
 
 - Domain: pure unit tests. Application: handler and validator tests with NSubstitute for the ports.
 - Integration: Testcontainers (real Postgres and Redis) + `WebApplicationFactory` of that service. No EF InMemory provider.
-- **The dev Mac never runs Docker.** Every integration test class carries `[Trait("Category", "Integration")]`. Locally run `dotnet test --filter "Category!=Integration"`; CI (`ubuntu-latest`, which has Docker) runs everything. Never start Docker or Docker Desktop on the Mac.
+- **The dev Mac never runs Docker.** Every integration test class carries `[Trait("Category", "Integration")]`. `tests/Directory.Build.props` excludes them automatically unless `CI=true`, so a plain `dotnet test` is safe on the Mac; CI (`ubuntu-latest`, which has Docker, sets `CI=true`) runs everything. Never start Docker or Docker Desktop on the Mac.
 - Test naming: `MethodOrScenario_Condition_ExpectedResult`.
 
 ## Commands

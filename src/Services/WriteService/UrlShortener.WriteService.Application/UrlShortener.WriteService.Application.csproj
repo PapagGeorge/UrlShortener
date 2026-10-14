@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../../Shared/UrlShortener.Domain/UrlShortener.Domain.csproj" />
     <ProjectReference Include="../../../Shared/UrlShortener.BuildingBlocks/UrlShortener.BuildingBlocks.csproj" />
   </ItemGroup>
