@@ -1,4 +1,5 @@
 using UrlShortener.BuildingBlocks.Logging;
+using UrlShortener.BuildingBlocks.Metrics;
 using UrlShortener.BuildingBlocks.Messaging;
 using UrlShortener.ReadService.Application;
 using UrlShortener.ReadService.Application.GetOriginalUrl;
@@ -15,13 +16,14 @@ internal static class ReadApiServiceCollectionExtensions
         services.AddReadInfrastructure(configuration);
 
         services.AddScoped<IQueryHandler<GetOriginalUrlQuery, GetOriginalUrlResult>>(sp =>
-            new LoggingQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>(
-                new GetOriginalUrlQueryHandler(
-                    sp.GetRequiredService<IShortUrlCache>(),
-                    sp.GetRequiredService<IShortUrlReadRepository>(),
-                    sp.GetRequiredService<TimeProvider>(),
-                    sp.GetRequiredService<RedirectCachePolicy>()),
-                sp.GetRequiredService<ILogger<LoggingQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>>>()));
+            new MetricsQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>(
+                new LoggingQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>(
+                    new GetOriginalUrlQueryHandler(
+                        sp.GetRequiredService<IShortUrlCache>(),
+                        sp.GetRequiredService<IShortUrlReadRepository>(),
+                        sp.GetRequiredService<TimeProvider>(),
+                        sp.GetRequiredService<RedirectCachePolicy>()),
+                    sp.GetRequiredService<ILogger<LoggingQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>>>())));
 
         return services;
     }

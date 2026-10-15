@@ -26,7 +26,8 @@ Both services and the Gateway work end to end in tests. Nothing has been contain
 
 ## Next: Phase 6, in suggested slices (one PR each)
 
-1. **6a Metrics (no new package).** `System.Diagnostics.Metrics` is part of the BCL: add `Meter("UrlShortener")` with `urls_created{custom_alias}`, `counter_batches_reserved`, `expired_urls_deleted` (write) and `redirects{outcome}`, `cache_hits`, `cache_misses` (read). Test with `MeterListener`.
+1. **6a Metrics (no new package). Handler-level part DONE** (`HandlerMetrics`: `urlshortener.handler.requests{request,outcome}` + `.duration`, via `MetricsCommandDecorator`/`MetricsQueryDecorator`, outermost in both services). **Still to do:** the domain counters below, especially cache hits and misses.
+   Original scope: `System.Diagnostics.Metrics` is part of the BCL: add `Meter("UrlShortener")` with `urls_created{custom_alias}`, `counter_batches_reserved`, `expired_urls_deleted` (write) and `redirects{outcome}`, `cache_hits`, `cache_misses` (read). Test with `MeterListener`.
 2. **6b OpenTelemetry wiring in `ServiceDefaults`.** Traces (ASP.NET Core, HttpClient, EF/Npgsql, Redis) and metrics, exported over OTLP; `service.name` = `gateway` / `read-service` / `write-service`. **Needs packages (not yet approved):** the OpenTelemetry SDK, OTLP exporter and instrumentation packages. Ask first, with versions.
 3. **6c Readiness health checks.** `/health` stays a cheap liveness check. Add `/health/ready`: Write = Postgres + Redis + counter not exhausted; Read = Postgres only (a Redis outage must **not** make it unready, it degrades gracefully).
 4. **6d OpenAPI + Scalar, Development only.** **Needs packages (not yet approved):** `Microsoft.AspNetCore.OpenApi`, `Scalar.AspNetCore`.
@@ -50,6 +51,8 @@ Both services and the Gateway work end to end in tests. Nothing has been contain
 - Wire `deploy/postgres/roles.sql` into the Postgres init (fill the `{{...}}` placeholders from `.env`; letters and digits only in passwords). Write connects as `urlshortener_write`, Read as `urlshortener_read`.
 - **Postgres `max_connections`** must exceed the sum of the pools (Read pool defaults to 32, Write to Npgsql's 100 unless set in the connection string).
 - `publish.yml` (main only, after CI): push to GHCR with `GITHUB_TOKEN`.
+- **Compose smoke test in CI (agreed):** a CI job brings the full compose stack up on the GitHub runner and runs create → redirect → expire, so SIT also runs on every PR.
+- **Debug from the Mac (agreed):** a small compose with only Postgres and Redis for the Linux box; the services run in Rider on the Mac with connection strings in user-secrets. Ports on the LAN or behind an SSH tunnel, strong passwords, never public. Optional: `docker context` over `ssh://` to the Linux box (CLI only, no engine on the Mac).
 - SIT on the Linux box: create → redirect → expire (`docker compose up -d --build`), never on the Mac.
 
 ## How to resume
