@@ -15,6 +15,7 @@ public sealed class CreateShortUrlFullStackTests(FullStackFixture stack) : IAsyn
         // Start one instance first so the schema exists, then clean up the data of earlier tests.
         using var warmUp = stack.StartInstance().CreateClient();
         await stack.ResetAsync();
+        ErrorCapture.Clear();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -89,7 +90,7 @@ public sealed class CreateShortUrlFullStackTests(FullStackFixture stack) : IAsyn
 
         var failed = responses.FirstOrDefault(r => r.StatusCode != HttpStatusCode.Created);
         var summary = string.Join(", ", responses.GroupBy(r => (int)r.StatusCode).Select(g => $"{g.Key}: {g.Count()}"));
-        (failed is null).ShouldBeTrue($"statuses [{summary}]; first failure body: {(failed is null ? "" : await failed.Content.ReadAsStringAsync())}");
+        (failed is null).ShouldBeTrue($"statuses [{summary}]; first failure body: {(failed is null ? "" : await failed.Content.ReadAsStringAsync())}; server errors: {ErrorCapture.Describe()}");
         (await Task.WhenAll(responses.Select(Code))).Distinct().Count().ShouldBe(60);
         (await RowCount()).ShouldBe(60);
         (await CounterValue()).ShouldBe(1000L);   // a single reserved batch
@@ -107,7 +108,8 @@ public sealed class CreateShortUrlFullStackTests(FullStackFixture stack) : IAsyn
             Create(b, new { originalUrl = $"https://example.com/b{i}" }),
         }));
 
-        responses.ShouldAllBe(r => r.StatusCode == HttpStatusCode.Created);
+        var firstBad = responses.FirstOrDefault(r => r.StatusCode != HttpStatusCode.Created);
+        (firstBad is null).ShouldBeTrue($"first failure: {(firstBad is null ? "" : (int)firstBad.StatusCode + " " + await firstBad.Content.ReadAsStringAsync())}; server errors: {ErrorCapture.Describe()}");
         (await Task.WhenAll(responses.Select(Code))).Distinct().Count().ShouldBe(80);
         (await RowCount()).ShouldBe(80);
         // Each instance reserved its own batch of 1000 ids.

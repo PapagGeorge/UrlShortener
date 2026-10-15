@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +75,41 @@ public sealed class StackApiFactory(string postgres, string redis) : WebApplicat
         builder.UseSetting("Obfuscation:Key", Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)(i * 5)).ToArray()));
         builder.UseSetting("ShortUrl:PublicBaseUrl", FullStackFixture.PublicBaseUrl);
         builder.UseSetting("Database:MigrateOnStartup", "true");
+        builder.ConfigureLogging(logging => logging.AddProvider(new ErrorCapture()));
+    }
+}
+
+/// <summary>
+/// Keeps server-side errors (with exceptions) so a failing concurrency test can show why a request returned 500.
+/// A 500 body carries no detail on purpose, and CI logs would not show it otherwise.
+/// </summary>
+public sealed class ErrorCapture : ILoggerProvider
+{
+    private static readonly System.Collections.Concurrent.ConcurrentQueue<string> Errors = new();
+
+    public static void Clear() => Errors.Clear();
+
+    public static string Describe() => string.Join("\n---\n", Errors.Take(5));
+
+    public ILogger CreateLogger(string categoryName) => new CaptureLogger(categoryName);
+
+    public void Dispose()
+    {
+    }
+
+    private sealed class CaptureLogger(string category) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Error;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel))
+            {
+                Errors.Enqueue($"{category}: {formatter(state, exception)}\n{exception}");
+            }
+        }
     }
 }
 
