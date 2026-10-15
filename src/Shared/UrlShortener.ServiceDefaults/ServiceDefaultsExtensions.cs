@@ -29,9 +29,17 @@ public static class ServiceDefaultsExtensions
 
     /// <summary>
     /// Traces and metrics through OpenTelemetry. Our own meters are picked up by name (<c>UrlShortener.*</c>), so a new meter needs no registration.
-    /// Health checks are not traced (they would drown the real traces). Data leaves the process only when the standard
-    /// <c>OTEL_EXPORTER_OTLP_ENDPOINT</c> is configured; without it nothing is exported and nothing can fail.
+    /// Health checks are not traced (they would drown the real traces). Data leaves the process only when a standard OTLP endpoint
+    /// (<c>OTEL_EXPORTER_OTLP_ENDPOINT</c>, or the per-signal <c>_TRACES_</c> / <c>_METRICS_</c> variants) is configured; without it nothing is exported and nothing can fail.
     /// </summary>
+    // The shared endpoint, or one per signal (Jaeger takes the traces, Prometheus the metrics).
+    private static readonly string[] OtlpEndpointVariables =
+    [
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+    ];
+
     private static void AddTelemetry<TBuilder>(this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
@@ -46,7 +54,7 @@ public static class ServiceDefaultsExtensions
                     options.Filter = context => !context.Request.Path.StartsWithSegments("/health"))
                 .AddHttpClientInstrumentation());
 
-        if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+        if (OtlpEndpointVariables.Any(name => !string.IsNullOrWhiteSpace(builder.Configuration[name])))
         {
             telemetry.UseOtlpExporter();
         }

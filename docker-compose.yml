@@ -1,0 +1,140 @@
+# The full stack, built from source. For the Linux box (SIT) and the CI smoke test; never run on the dev Mac.
+#   cp .env.example .env   # then fill it in
+#   docker compose up -d --build --wait
+#   scripts/smoke.sh
+# Only the Gateway and the observability UIs publish ports; the services talk over the internal network.
+
+x-otel: &otel
+  # Traces go to Jaeger, metrics to Prometheus (OTLP receiver). Each signal has its own endpoint.
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://prometheus:9090/api/v1/otlp/v1/metrics
+
+# The ASP.NET image has no curl or wget, so probe with bash's /dev/tcp.
+x-service-healthcheck: &service-healthcheck
+  test:
+    - CMD
+    - bash
+    - -c
+    - |
+      exec 3<>/dev/tcp/127.0.0.1/8080
+      printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3
+      head -n1 <&3 | grep -q ' 200 '
+  interval: 10s
+  timeout: 5s
+  retries: 6
+  start_period: 20s
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=150"]   # must exceed the sum of the service pools (Read 32, Write 20, plus admin)
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-urlshortener}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      WRITE_DB_PASSWORD: ${WRITE_DB_PASSWORD:?set WRITE_DB_PASSWORD in .env}
+      READ_DB_PASSWORD: ${READ_DB_PASSWORD:?set READ_DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres/roles.sql:/templates/roles.sql:ro
+      - ./deploy/postgres/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-urlshortener}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.6
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]   # AOF: the code counter must survive a restart
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    restart: unless-stopped
+    ports:
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:16686:16686"
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:9090:9090"
+
+  write-service:
+    build:
+      context: .
+      dockerfile: src/Services/WriteService/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *otel
+      ConnectionStrings__Postgres: Host=postgres;Database=${POSTGRES_DB:-urlshortener};Username=urlshortener_write;Password=${WRITE_DB_PASSWORD};Maximum Pool Size=20
+      ConnectionStrings__Redis: redis:6379
+      Obfuscation__Key: ${OBFUSCATION_KEY:?set OBFUSCATION_KEY in .env}
+      ShortUrl__PublicBaseUrl: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL in .env}
+    healthcheck: *service-healthcheck
+
+  read-service:
+    build:
+      context: .
+      dockerfile: src/Services/ReadService/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      write-service: { condition: service_healthy }   # the Write Service creates the schema; Read has no migrations
+    environment:
+      <<: *otel
+      ConnectionStrings__Postgres: Host=postgres;Database=${POSTGRES_DB:-urlshortener};Username=urlshortener_read;Password=${READ_DB_PASSWORD}
+      ConnectionStrings__Redis: redis:6379
+    healthcheck: *service-healthcheck
+
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      write-service: { condition: service_healthy }
+      read-service: { condition: service_healthy }
+    environment:
+      <<: *otel
+      # Behind a proxy, also set ForwardedHeaders__KnownProxies__0 (or KnownNetworks__0) to the proxy address; empty means ignore X-Forwarded-For.
+    ports:
+      - "${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-8080}:8080"
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/8080
+          printf 'GET /health HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3
+          head -n1 <&3 | grep -q ' 200 '
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+volumes:
+  pgdata:
+  redisdata:
+  promdata:
