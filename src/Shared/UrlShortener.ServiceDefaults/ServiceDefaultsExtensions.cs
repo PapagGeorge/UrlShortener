@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Scalar.AspNetCore;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -56,6 +57,29 @@ public static class ServiceDefaultsExtensions
     {
         app.UseExceptionHandler();
         app.UseStatusCodePages();
+        return app;
+    }
+
+    /// <summary>Opt-in (the Gateway has no API of its own to document). Pair with <see cref="MapApiDocumentation"/>.</summary>
+    public static TBuilder AddApiDocumentation<TBuilder>(this TBuilder builder)
+        where TBuilder : IHostApplicationBuilder
+    {
+        builder.Services.AddOpenApi();
+        return builder;
+    }
+
+    /// <summary>
+    /// The OpenAPI document (<c>/openapi/v1.json</c>) and the Scalar UI (<c>/scalar</c>), <b>Development only</b>:
+    /// the repository is public and production must not advertise its API surface.
+    /// </summary>
+    public static WebApplication MapApiDocumentation(this WebApplication app)
+    {
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapOpenApi();
+            app.MapScalarApiReference();
+        }
+
         return app;
     }
 
