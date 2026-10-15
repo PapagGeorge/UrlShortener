@@ -148,4 +148,73 @@ public sealed class TelemetryTests
 
         response.IsSuccessStatusCode.ShouldBeTrue();
     }
+
+    /// <summary>A minimal OTLP/HTTP receiver on localhost that records the paths it is posted to.</summary>
+    private sealed class FakeCollector : IDisposable
+    {
+        private readonly System.Net.HttpListener _listener = new();
+        private readonly CancellationTokenSource _stop = new();
+        public System.Collections.Concurrent.ConcurrentBag<string> Paths { get; } = [];
+        public string BaseUrl { get; }
+
+        public FakeCollector()
+        {
+            var port = System.Net.Sockets.TcpListener.Create(0);
+            port.Start();
+            var number = ((System.Net.IPEndPoint)port.LocalEndpoint).Port;
+            port.Stop();
+            BaseUrl = $"http://localhost:{number}";
+            _listener.Prefixes.Add(BaseUrl + "/");
+            _listener.Start();
+            _ = Task.Run(async () =>
+            {
+                while (!_stop.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var context = await _listener.GetContextAsync();
+                        Paths.Add(context.Request.Url!.AbsolutePath);
+                        context.Response.StatusCode = 200;
+                        context.Response.Close();
+                    }
+                    catch
+                    {
+                        return;
+                    }
+                }
+            });
+        }
+
+        public void Dispose()
+        {
+            _stop.Cancel();
+            _listener.Close();
+        }
+    }
+
+    [Fact]
+    public async Task SignalSpecificOtlpEndpoints_SendTracesAndMetricsToDifferentPlaces()
+    {
+        // Jaeger takes traces and Prometheus takes metrics, so one shared endpoint is not enough in the compose stack.
+        using var collector = new FakeCollector();
+        var (app, _, _, _) = await StartApp(new()
+        {
+            ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf",
+            ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = collector.BaseUrl + "/traces-sink/v1/traces",
+            ["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"] = collector.BaseUrl + "/metrics-sink/v1/metrics",
+            ["OTEL_BSP_SCHEDULE_DELAY"] = "200",
+            ["OTEL_METRIC_EXPORT_INTERVAL"] = "500",
+        });
+        await using var _a = app;
+
+        using var response = await app.GetTestClient().GetAsync("/work");
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline && !(collector.Paths.Contains("/traces-sink/v1/traces") && collector.Paths.Contains("/metrics-sink/v1/metrics")))
+        {
+            await Task.Delay(100);
+        }
+
+        collector.Paths.ShouldContain("/traces-sink/v1/traces");
+        collector.Paths.ShouldContain("/metrics-sink/v1/metrics");
+    }
 }
