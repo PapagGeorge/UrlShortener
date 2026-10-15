@@ -1,0 +1,13 @@
+# Keep the build context small and free of secrets. Build context = repo root.
+**/bin
+**/obj
+.git
+.github
+.idea
+.vs
+**/.DS_Store
+.env
+**/.env
+**/*.user
+tests
+docs
