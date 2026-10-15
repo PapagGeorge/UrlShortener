@@ -54,6 +54,8 @@ public static class DependencyInjection
             return ConnectionMultiplexer.Connect(options);
         });
 
+        services.AddHostedService<RedisConnectionWarmup>();
+
         services.AddSingleton<ICounterStore>(sp => new RedisCounterStore(
             sp.GetRequiredService<IConnectionMultiplexer>(),
             sp.GetRequiredService<IOptions<CounterOptions>>().Value.RedisKey));

@@ -41,7 +41,7 @@ Both services and the Gateway work end to end in tests. Nothing has been contain
 - **Gateway rate limiter is in memory** (per instance). Fine for one Gateway; needs a shared store before running several.
 - **`ForwardedHeaders:KnownProxies/KnownNetworks`** are empty by default (forwarded headers ignored). Set them at deploy time to the proxy in front of the Gateway, if there is one.
 - **Request body limit** (8 KB) lives in the Gateway. The Write Service has no own limit yet.
-- **One unexplained CI failure:** `Post_ManyConcurrentRequests_ProduceUniqueCodesFromOneCounterBatch` (Write full-stack) failed once and passed on every later run. Both concurrency tests now report status codes and the first failure body, so a recurrence will show the cause. Watch for it.
+- **Cold-burst CI flake: explained and fixed.** The Write Service created its Redis connection lazily inside the first request; under 60 concurrent cold requests the handshake starved for thread-pool threads and hit `ConnectTimeout` (5 s), giving one 500. `RedisConnectionWarmup` now connects at startup. Both concurrency tests also report the captured server errors on failure. If it ever recurs, read the `server errors:` part of the message.
 - **Never rotate `Obfuscation:Key`** once codes exist (it re-maps the whole code space). Back it up with the rest of `deploy/.env`.
 
 ## Phase 7 and 8 preview (so nothing is forgotten)
