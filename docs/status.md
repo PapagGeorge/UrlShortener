@@ -2,7 +2,7 @@
 
 Where the implementation stands and how to pick it up again. The plan is in [`technical-design.md`](technical-design.md) (§8 lists the phases); this file records **progress, open decisions and what comes next**. Update it at the end of every phase, in the same PR.
 
-**Last updated:** 2026-10-15 · **Current position:** Phases 0–5 are merged. **Next: Phase 6 (Observability & hardening).**
+**Last updated:** 2026-10-15 · **Current position:** Phases 0–6 are merged (6e pending merge). **Phase 6 is complete. Next: Phase 7 (Docker, compose, deploy).**
 
 ## Phases
 
@@ -18,26 +18,25 @@ Where the implementation stands and how to pick it up again. The plan is in [`te
 | 4b | Read Infrastructure: read-only DB, Redis cache, DB roles | ✅ done | #8 |
 | 4c | Read Api: `GET /{code}` 302/404/410, single-flight, bounded pool | ✅ done | #9 |
 | 5 | Gateway: YARP routes, rate limiting, trusted proxies, body limit | ✅ done | #10 |
-| 6 | Observability & hardening | ⏭ **next** | – |
-| 7 | Packaging & deploy (Dockerfiles, compose, GHCR, systemd) | ⬜ not started | – |
+| 6 | Observability & hardening (6a metrics, 6b OpenTelemetry, 6c readiness, 6d OpenAPI/Scalar, 6e Redis resilience) | ✅ done | #12–#17 |
+| 7 | Packaging & deploy (Dockerfiles, compose, GHCR, systemd) | ⏭ **next** | – |
 | 8 | Load check (k6/bombardier), p50/p99 | ⬜ not started | – |
 
 Both services and the Gateway work end to end in tests. Nothing has been containerised or deployed yet.
 
-## Next: Phase 6, in suggested slices (one PR each)
+## Phase 6 slices (all done; kept as a record)
 
 1. **6a Metrics (no new package). Handler-level part DONE** (`HandlerMetrics`: `urlshortener.handler.requests{request,outcome}` + `.duration`, via `MetricsCommandDecorator`/`MetricsQueryDecorator`, outermost in both services). **Cache part DONE:** `RedirectMetrics` (own `Meter` "UrlShortener.Read"), `urlshortener.cache.lookups{result=hit|miss}`. Create outcomes are already covered by the handler counter. **Optional leftover:** counters for expired URLs deleted and counter batches reserved (write).
    Original scope: `System.Diagnostics.Metrics` is part of the BCL: add `Meter("UrlShortener")` with `urls_created{custom_alias}`, `counter_batches_reserved`, `expired_urls_deleted` (write) and `redirects{outcome}`, `cache_hits`, `cache_misses` (read). Test with `MeterListener`.
 2. **6b OpenTelemetry in `ServiceDefaults`: DONE** (4 approved packages, 1.19.x). ASP.NET Core + HttpClient traces and metrics, our meters by wildcard `UrlShortener.*`, `/health` not traced, `service.name` = the assembly name. Exported over OTLP **only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set** (Phase 7 sets it to Jaeger and Prometheus). **Not included (packages not approved):** Npgsql and Redis spans (`Npgsql.OpenTelemetry`, `OpenTelemetry.Instrumentation.StackExchangeRedis`) and .NET runtime metrics (`OpenTelemetry.Instrumentation.Runtime`). Tests live in `Gateway.Tests/ServiceDefaults` because ServiceDefaults has no test project.
 3. **6c Readiness health checks: DONE.** `/health` = liveness, runs no checks (a dependency outage must never restart a container). `/health/ready` runs the probes registered with `AddReadinessProbe` (3 s timeout, 503 with a bare `Unhealthy` body). Write = Postgres + Redis; Read = Postgres only (Redis down keeps it ready). The counter-exhausted check was dropped on purpose: 62^7 = 3.5e12 codes, and exhaustion already surfaces as a 500. **Phase 7 notes:** use `/health/ready` for compose `depends_on: condition: service_healthy` and `/health` for the container liveness healthcheck; the Gateway's active health checks still probe `/health` (decide whether they should probe `/health/ready`).
 4. **6d OpenAPI + Scalar: DONE** (`Microsoft.AspNetCore.OpenApi` 10.0.13, `Scalar.AspNetCore` 2.18.0). Opt-in per service via `AddApiDocumentation()` / `MapApiDocumentation()` (Write and Read; not the Gateway). **Development only**: `/openapi/v1.json` and `/scalar` are 404 in any other environment (tested). Run a service with `ASPNETCORE_ENVIRONMENT=Development` to browse it. Health endpoints are not in the document. Validation errors are documented as 400 (not 422).
-5. **6e Decisions on resilience (see below):** negative cache, circuit breaker.
+5. **6e Resilience decisions: DONE (2026-10-15).** Implemented: Write Redis `FailFast` (`WriteRedisOptions`) and Read `RedisConnectionWarmup` (same cold-burst fix as Write). **Decided not to implement now:** negative cache for 404s (the Gateway rate limit already covers scans; revisit if Phase 8 shows load on Postgres from unknown codes) and a Redis circuit breaker for the Read Service (FailFast already makes an outage cost ~ms; measure in Phase 8 first).
 
 ## Open decisions and known gaps
 
-- **P5 – negative caching** of unknown codes (short TTL, e.g. 30 s) so random-code scans do not reach Postgres. Single-flight already protects against a stampede on *one* code, not against many different unknown codes. Decide in 6e; off by default.
-- **Redis circuit breaker (Read).** `BacklogPolicy.FailFast` already makes a Redis outage cost ~ms per redirect; a breaker would skip Redis entirely for a few seconds after repeated failures. Probably not needed; measure in Phase 8.
-- **Write Service Redis `FailFast`.** The counter has no fail-fast: with Redis down, a generated-code request fails after ~1–2 s instead of at once (the result is a `500` either way). Small PR if wanted.
+- **P5 – negative caching** of unknown codes (short TTL, e.g. 30 s) so random-code scans do not reach Postgres. Single-flight already protects against a stampede on *one* code, not against many different unknown codes. Decide in 6e; off by default. *Decided in 6e: not now, revisit after the Phase 8 load check.*
+- **Redis circuit breaker (Read).** `BacklogPolicy.FailFast` already makes a Redis outage cost ~ms per redirect; a breaker would skip Redis entirely for a few seconds after repeated failures. Probably not needed; measure in Phase 8. *Decided in 6e: not now, revisit after the Phase 8 load check.*
 - **Gateway rate limiter is in memory** (per instance). Fine for one Gateway; needs a shared store before running several.
 - **`ForwardedHeaders:KnownProxies/KnownNetworks`** are empty by default (forwarded headers ignored). Set them at deploy time to the proxy in front of the Gateway, if there is one.
 - **Request body limit** (8 KB) lives in the Gateway. The Write Service has no own limit yet.

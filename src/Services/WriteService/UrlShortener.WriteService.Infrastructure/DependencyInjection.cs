@@ -46,13 +46,7 @@ public static class DependencyInjection
         services.AddOptions<ObfuscationOptions>().Bind(configuration.GetSection(ObfuscationOptions.SectionName)).ValidateOnStart();
         services.AddOptions<CounterOptions>().Bind(configuration.GetSection(CounterOptions.SectionName)).ValidateOnStart();
 
-        // AbortOnConnectFail=false: the service starts and serves aliases even while Redis is down; the connection is retried in the background.
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
-        {
-            var options = ConfigurationOptions.Parse(redisConnectionString);
-            options.AbortOnConnectFail = false;
-            return ConnectionMultiplexer.Connect(options);
-        });
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(WriteRedisOptions.Create(redisConnectionString)));
 
         services.AddHostedService<RedisConnectionWarmup>();
 
