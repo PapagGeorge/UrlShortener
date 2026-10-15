@@ -15,6 +15,8 @@ internal static class ReadApiServiceCollectionExtensions
     {
         services.AddReadInfrastructure(configuration);
 
+        services.AddSingleton<RedirectMetrics>();
+
         services.AddScoped<IQueryHandler<GetOriginalUrlQuery, GetOriginalUrlResult>>(sp =>
             new MetricsQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>(
                 new LoggingQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>(
@@ -22,7 +24,8 @@ internal static class ReadApiServiceCollectionExtensions
                         sp.GetRequiredService<IShortUrlCache>(),
                         sp.GetRequiredService<IShortUrlReadRepository>(),
                         sp.GetRequiredService<TimeProvider>(),
-                        sp.GetRequiredService<RedirectCachePolicy>()),
+                        sp.GetRequiredService<RedirectCachePolicy>(),
+                        sp.GetRequiredService<RedirectMetrics>()),
                     sp.GetRequiredService<ILogger<LoggingQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>>>())));
 
         return services;
