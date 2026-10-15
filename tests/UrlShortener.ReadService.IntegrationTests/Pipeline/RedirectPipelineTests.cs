@@ -30,7 +30,8 @@ public sealed class RedirectPipelineTests(ReadStackFixture stack) : IAsyncLifeti
             new RedisShortUrlCache(redis ?? stack.Redis, NullLogger<RedisShortUrlCache>.Instance),
             new ShortUrlReadRepository(context),
             _time,
-            new RedirectCachePolicy(DefaultTtl));
+            new RedirectCachePolicy(DefaultTtl),
+            new RedirectMetrics());
 
         return await handler.Handle(new GetOriginalUrlQuery(code), default);
     }

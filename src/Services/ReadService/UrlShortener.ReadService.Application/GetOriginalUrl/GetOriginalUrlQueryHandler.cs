@@ -12,7 +12,8 @@ public sealed class GetOriginalUrlQueryHandler(
     IShortUrlCache cache,
     IShortUrlReadRepository repository,
     TimeProvider time,
-    RedirectCachePolicy policy) : IQueryHandler<GetOriginalUrlQuery, GetOriginalUrlResult>
+    RedirectCachePolicy policy,
+    RedirectMetrics metrics) : IQueryHandler<GetOriginalUrlQuery, GetOriginalUrlResult>
 {
     public async Task<Result<GetOriginalUrlResult>> Handle(GetOriginalUrlQuery query, CancellationToken ct)
     {
@@ -26,10 +27,12 @@ public sealed class GetOriginalUrlQueryHandler(
         var cached = await cache.GetAsync(code, ct);
         if (cached is not null)
         {
+            metrics.CacheHit();
             // The TTL normally evicts an entry at its expiry, but never rely on that alone.
             return cached.IsExpired(now) ? ReadErrors.Expired : new GetOriginalUrlResult(cached.OriginalUrl);
         }
 
+        metrics.CacheMiss();
         var target = await repository.FindAsync(code, ct);
         if (target is null)
         {
