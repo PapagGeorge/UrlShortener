@@ -85,6 +85,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IConnectionMultiplexer>(sp =>
             ConnectionMultiplexer.Connect(ReadInfrastructureOptions.RedisOptions(redis, sp.GetRequiredService<IOptions<ReadCacheOptions>>().Value)));
+        services.AddHostedService<RedisConnectionWarmup>();
         services.AddSingleton<IShortUrlCache, RedisShortUrlCache>();
         services.AddSingleton(sp => new RedirectCachePolicy(sp.GetRequiredService<IOptions<ReadCacheOptions>>().Value.DefaultTtl));
 
