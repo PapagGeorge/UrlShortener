@@ -45,7 +45,7 @@ Both services and the Gateway work end to end in tests. Nothing has been contain
 
 ## Phase 7 and 8 preview (so nothing is forgotten)
 
-- Dockerfiles for gateway, write, read (multi-stage, non-root, linux/amd64; build context = repo root).
+- **7a Dockerfiles: DONE (PR pending)** for gateway, write, read (multi-stage, non-root `USER $APP_UID`, port 8080, build context = repo root, `.dockerignore`). Guarded locally by `ArchitectureTests/DockerfileTests` (project files copied, non-root, publish target) and built for real by the `docker-build` job in ci.yml. The aspnet image has **no curl/wget**: compose healthchecks must use bash, e.g. `bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /health/ready HTTP/1.0\r\n\r\n" >&3 && head -1 <&3 | grep -q 200'`.
 - `docker-compose.yml` for the Linux box (+ Postgres, Redis with AOF, Jaeger, Prometheus with `--web.enable-otlp-receiver`), `deploy/docker-compose.prod.yml`, `update.sh`, systemd timer, `.env.example`.
 - Wire `deploy/postgres/roles.sql` into the Postgres init (fill the `{{...}}` placeholders from `.env`; letters and digits only in passwords). Write connects as `urlshortener_write`, Read as `urlshortener_read`.
 - **Postgres `max_connections`** must exceed the sum of the pools (Read pool defaults to 32, Write to Npgsql's 100 unless set in the connection string).
