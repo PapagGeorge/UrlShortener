@@ -1,0 +1,13 @@
+[Unit]
+Description=Update the URL shortener stack (pull images, restart what changed)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# The user must be in the docker group and own the checkout.
+User=deploy
+WorkingDirectory=/opt/urlshortener/deploy
+ExecStart=/opt/urlshortener/deploy/update.sh
+TimeoutStartSec=600

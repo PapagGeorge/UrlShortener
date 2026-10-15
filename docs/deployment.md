@@ -46,7 +46,7 @@ Ubuntu x86 box ◀──── docker compose pull (systemd timer) ────�
 
 ## Compose stack (`docker-compose.yml`, for the Linux box)
 
-- Builds the images from source (or pulls them, see `deploy/`).
+- `docker-compose.yml` builds the images from source (SIT and the CI smoke test); `deploy/docker-compose.prod.yml` pulls the published ones. CI checks that the two never drift apart (`scripts/check-compose-drift.sh`).
 - Services: `gateway`, `read-service`, `write-service`, `postgres`, `redis`, `jaeger`, `prometheus`.
 - Only the gateway and the UIs (Jaeger, Prometheus) expose ports. The services talk over the internal network.
 - Integration tests mark themselves `[Trait("Category", "Integration")]`. They are the only tests that need a Docker daemon.
@@ -57,7 +57,7 @@ Ubuntu x86 box ◀──── docker compose pull (systemd timer) ────�
 2. **On the Linux box** (ad hoc, e.g. against a feature branch): `git fetch && git checkout <branch> && dotnet test` (needs the .NET 10 SDK there), or without installing the SDK:
    `docker run --rm -v "$PWD":/src -w /src -v /var/run/docker.sock:/var/run/docker.sock mcr.microsoft.com/dotnet/sdk:10.0 dotnet test`
 3. **From the Mac against the Linux box's Docker** (optional, no local Docker): point Testcontainers at the remote daemon, e.g. an SSH-forwarded socket plus `TESTCONTAINERS_HOST_OVERRIDE=<linux-box-address>`. Only on a trusted network, and never expose the Docker API publicly.
-4. **SIT**: `docker compose up -d --build` on the Linux box and exercise the real HTTP flow (create, redirect, expire).
+4. **SIT**: automatically on every PR (`compose-smoke` in ci.yml runs `scripts/smoke.sh` against the whole stack); by hand on the Linux box: `docker compose up -d --build --wait && scripts/smoke.sh`.
 
 Avoid running heavy test containers on the same Docker host as production if the box is small. Use a separate compose project name and different ports.
 
@@ -66,11 +66,30 @@ Avoid running heavy test containers on the same Docker host as production if the
 | File | Purpose |
 |---|---|
 | `docker-compose.prod.yml` | `image: ghcr.io/...:${IMAGE_TAG:-latest}`, never `build:` |
-| `update.sh` | `docker compose pull && docker compose up -d --remove-orphans && docker image prune -f` |
+| `update.sh` | `git pull --ff-only`, `docker compose pull`, `up -d --remove-orphans --wait`, `image prune -f`. One run at a time (flock), never touches volumes |
 | `urlshortener-update.service` + `.timer` | A systemd timer runs `update.sh` every few minutes |
+| `.env.example` | Placeholders for `.env` (the real `.env` is created on the box) |
 | `.env` | Runtime secrets, **only on the box** (`chmod 600`, git-ignored) |
 
-**Rollback**: set `IMAGE_TAG=sha-<old>` in `.env` and run `update.sh`.
+**Rollback**: set `IMAGE_TAG=sha-<old>` in `.env` and run `update.sh`. Set it back to `latest` to follow main again.
+
+### First-time setup on the Linux box
+
+```bash
+sudo useradd -m -G docker deploy                      # the user the timer runs as (must be in the docker group)
+sudo git clone https://github.com/PapagGeorge/UrlShortener.git /opt/urlshortener
+sudo chown -R deploy: /opt/urlshortener
+sudo -u deploy cp /opt/urlshortener/deploy/.env.example /opt/urlshortener/deploy/.env
+sudo -u deploy chmod 600 /opt/urlshortener/deploy/.env
+sudo -u deploy nano /opt/urlshortener/deploy/.env     # fill in the passwords, OBFUSCATION_KEY, PUBLIC_BASE_URL, GATEWAY_BIND
+sudo -u deploy /opt/urlshortener/deploy/update.sh     # first start by hand, watch it succeed
+sudo cp /opt/urlshortener/deploy/urlshortener-update.* /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now urlshortener-update.timer
+```
+
+- **GHCR visibility:** the first `publish.yml` run creates the packages as *private*. Either make the three packages public (GitHub profile, Packages, each package, Settings, Change visibility; the images contain no secrets) or run `docker login ghcr.io` as `deploy` with a token that has only `read:packages`.
+- The Postgres roles (`deploy/postgres/10-roles.sh`) are applied only on an **empty** data volume. Changing the passwords later means `docker compose down -v`, which erases the data.
+- Check the timer: `systemctl list-timers urlshortener-update.timer` and `journalctl -u urlshortener-update.service -n 50`.
 
 ## Secrets (public repo)
 
