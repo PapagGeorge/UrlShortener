@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a new URL shortener release every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=urlshortener-update.service
+
+[Install]
+WantedBy=timers.target

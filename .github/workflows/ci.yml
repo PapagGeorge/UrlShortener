@@ -95,3 +95,31 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+
+  # The prod compose cannot be started here (its images exist only after a merge), so check that it is valid
+  # and has not drifted from the dev compose that the smoke test above does run.
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create throwaway env files (CI only)
+        run: |
+          for file in .env deploy/.env; do
+            {
+              echo "POSTGRES_DB=urlshortener"
+              echo "POSTGRES_PASSWORD=ci"
+              echo "WRITE_DB_PASSWORD=ci"
+              echo "READ_DB_PASSWORD=ci"
+              echo "OBFUSCATION_KEY=ci"
+              echo "PUBLIC_BASE_URL=http://localhost:8080"
+            } > "$file"
+          done
+
+      - name: Both compose files are valid
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env config --quiet
+
+      - name: No drift between dev and prod compose
+        run: scripts/check-compose-drift.sh .env deploy/.env
