@@ -6,12 +6,14 @@ using UrlShortener.WriteService.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddApiDocumentation();
 builder.Services.AddWriteApi(builder.Configuration);
 
 var app = builder.Build();
 
 app.UseServiceDefaults();
 app.MapDefaultEndpoints();
+app.MapApiDocumentation();
 app.MapCreateShortUrl();
 
 // This service owns the schema. Can be switched off (Database:MigrateOnStartup=false) e.g. for tests.

@@ -38,7 +38,14 @@ internal static class RedirectEndpoint
             }
 
             return Results.Redirect(url, permanent: false, preserveMethod: false);
-        });
+        })
+        .WithName("Redirect")
+        .WithSummary("Redirects a short code to its original URL.")
+        .WithDescription("Always a temporary redirect (302), never 301, so clients keep asking. HEAD is supported. The response is never cacheable (Cache-Control: no-store).")
+        .Produces(StatusCodes.Status302Found)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status410Gone)
+        .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         return app;
     }

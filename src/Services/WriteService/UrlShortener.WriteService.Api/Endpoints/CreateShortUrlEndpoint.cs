@@ -30,7 +30,16 @@ internal static class CreateShortUrlEndpoint
 
             var shortUrl = options.Value.BuildShortUrl(result.Value.ShortCode);
             return Results.Created(shortUrl, new CreateShortUrlResponse(shortUrl));
-        });
+        })
+        .WithName("CreateShortUrl")
+        .WithSummary("Creates a short URL.")
+        .WithDescription(
+            "Generates a 7-character code, or uses the optional alias (8-30 characters of A-Z, a-z, 0-9, _ and -, case-sensitive). " +
+            "An optional expiresAt must be in the future; after it the short URL answers 410 Gone. Only http and https URLs are accepted.")
+        .Produces<CreateShortUrlResponse>(StatusCodes.Status201Created)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         return app;
     }
