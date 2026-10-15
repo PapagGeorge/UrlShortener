@@ -128,4 +128,21 @@ public sealed class CreateShortUrlFullStackTests(FullStackFixture stack) : IAsyn
         generated.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
         generated.Content.Headers.ContentType!.MediaType.ShouldBe("application/problem+json");
     }
+
+    [Fact]
+    public async Task Ready_WithPostgresAndRedisUp_Is200()
+    {
+        using var client = stack.StartInstance().CreateClient();
+
+        (await client.GetAsync("/health/ready")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Ready_WhenRedisIsDown_Is503BecauseGeneratedCodesCannotBeIssued()
+    {
+        using var client = stack.StartInstance("redis-down.invalid:6379,connectTimeout=1000,syncTimeout=1000").CreateClient();
+
+        (await client.GetAsync("/health/ready")).StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        (await client.GetAsync("/health")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
 }

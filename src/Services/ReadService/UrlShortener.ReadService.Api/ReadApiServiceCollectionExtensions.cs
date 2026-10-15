@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using UrlShortener.BuildingBlocks.Logging;
 using UrlShortener.BuildingBlocks.Metrics;
 using UrlShortener.BuildingBlocks.Messaging;
@@ -5,6 +6,8 @@ using UrlShortener.ReadService.Application;
 using UrlShortener.ReadService.Application.GetOriginalUrl;
 using UrlShortener.ReadService.Application.Ports;
 using UrlShortener.ReadService.Infrastructure;
+using UrlShortener.ReadService.Infrastructure.Persistence;
+using UrlShortener.ServiceDefaults;
 
 namespace UrlShortener.ReadService.Api;
 
@@ -27,6 +30,16 @@ internal static class ReadApiServiceCollectionExtensions
                         sp.GetRequiredService<RedirectCachePolicy>(),
                         sp.GetRequiredService<RedirectMetrics>()),
                     sp.GetRequiredService<ILogger<LoggingQueryDecorator<GetOriginalUrlQuery, GetOriginalUrlResult>>>())));
+
+        // Ready = can answer a redirect from the source of truth. Redis is deliberately NOT checked: without it the service degrades to the database.
+        services.AddHealthChecks()
+            .AddReadinessProbe("postgres", async (sp, ct) =>
+            {
+                if (!await sp.GetRequiredService<ReadDbContext>().Database.CanConnectAsync(ct))
+                {
+                    throw new InvalidOperationException("Postgres is not reachable.");
+                }
+            });
 
         return services;
     }

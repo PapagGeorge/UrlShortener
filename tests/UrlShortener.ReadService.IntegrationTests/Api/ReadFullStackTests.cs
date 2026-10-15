@@ -153,4 +153,20 @@ public sealed class ReadFullStackTests(ReadStackFixture stack) : IAsyncLifetime
         response.StatusCode.ShouldBe(HttpStatusCode.Found);
         elapsed.ShouldBeLessThan(TimeSpan.FromMilliseconds(500), $"a redirect with Redis down took {elapsed.TotalMilliseconds:F0} ms");
     }
+
+    [Fact]
+    public async Task Ready_WithPostgresUp_Is200()
+    {
+        using var client = Client();
+
+        (await client.GetAsync("/health/ready")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Ready_WhenRedisIsDown_StaysReadyBecauseTheServiceDegradesToTheDatabase()
+    {
+        using var client = Client(redis: "redis-down.invalid:6379");
+
+        (await client.GetAsync("/health/ready")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
 }
