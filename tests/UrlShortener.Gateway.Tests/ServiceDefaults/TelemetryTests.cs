@@ -67,6 +67,24 @@ public sealed class TelemetryTests
         return (app, spans, metrics, reader);
     }
 
+    /// <summary>The server span ends just after the response is sent, so a test has to wait for it.</summary>
+    private static async Task WaitForSpan(SpanCapture spans, string path)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            lock (spans.Spans)
+            {
+                if (spans.Spans.Any(s => s.Path == path))
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(20);
+        }
+    }
+
     [Fact]
     public async Task Request_ProducesAServerSpan()
     {
@@ -74,7 +92,7 @@ public sealed class TelemetryTests
         await using var _a = app;
 
         using var response = await app.GetTestClient().GetAsync("/work");
-        app.Services.GetRequiredService<TracerProvider>().ForceFlush();
+        await WaitForSpan(spans, "/work");
 
         spans.Spans.ShouldContain(s => s.Path == "/work");
     }
@@ -85,8 +103,9 @@ public sealed class TelemetryTests
         var (app, spans, _, _) = await StartApp();
         await using var _a = app;
 
-        using var response = await app.GetTestClient().GetAsync("/health");
-        app.Services.GetRequiredService<TracerProvider>().ForceFlush();
+        using var health = await app.GetTestClient().GetAsync("/health");
+        using var work = await app.GetTestClient().GetAsync("/work");
+        await WaitForSpan(spans, "/work");   // once the later request is traced, an earlier /health span would be there too
 
         spans.Spans.ShouldNotContain(s => s.Path == "/health");
     }

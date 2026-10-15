@@ -16,6 +16,13 @@ public sealed class PlatformEndpointsTests(WriteApiFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task Ready_WhenDependenciesAreUnreachable_Returns503ButLivenessStays200()
+    {
+        (await _client.GetAsync("/health/ready")).StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        (await _client.GetAsync("/health")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Get_OnTheCreateEndpoint_Returns405()
     {
         (await _client.GetAsync("/urls")).StatusCode.ShouldBe(HttpStatusCode.MethodNotAllowed);

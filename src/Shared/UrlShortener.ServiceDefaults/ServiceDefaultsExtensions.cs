@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry;
@@ -60,7 +61,9 @@ public static class ServiceDefaultsExtensions
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        app.MapHealthChecks("/health");
+        // Liveness runs no checks: a dependency outage must never get the container restarted. Readiness runs the registered probes.
+        app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains(ReadinessProbeExtensions.ReadyTag) });
         return app;
     }
 }

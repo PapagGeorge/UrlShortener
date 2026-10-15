@@ -198,6 +198,13 @@ public sealed class RedirectEndpointTests : IClassFixture<ReadApiFactory>
     }
 
     [Fact]
+    public async Task Ready_WhenTheDatabaseIsUnreachable_Returns503ButLivenessStays200()
+    {
+        (await _client.GetAsync("/health/ready")).StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        (await _client.GetAsync("/health")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Post_OnACode_Returns405BecauseCreatingBelongsToTheWriteService()
     {
         (await _client.PostAsync("/0aZ9xYb", null)).StatusCode.ShouldBe(HttpStatusCode.MethodNotAllowed);
