@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using UrlShortener.BuildingBlocks.Results;
@@ -8,7 +9,7 @@ using UrlShortener.ReadService.Application.Ports;
 
 namespace UrlShortener.ReadService.UnitTests.Application;
 
-public sealed class GetOriginalUrlQueryHandlerTests
+public sealed class GetOriginalUrlQueryHandlerTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 14, 12, 0, 0, TimeSpan.Zero);
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromHours(24);
@@ -18,12 +19,39 @@ public sealed class GetOriginalUrlQueryHandlerTests
     private readonly IShortUrlCache _cache = Substitute.For<IShortUrlCache>();
     private readonly IShortUrlReadRepository _repository = Substitute.For<IShortUrlReadRepository>();
     private readonly GetOriginalUrlQueryHandler _sut;
+    private readonly RedirectMetrics _metrics = new();
+    private readonly List<string> _lookups = [];
+    private readonly MeterListener _listener = new();
 
     public GetOriginalUrlQueryHandlerTests()
     {
-        _sut = new GetOriginalUrlQueryHandler(_cache, _repository, new FakeTimeProvider(Now), new RedirectCachePolicy(DefaultTtl));
+        _sut = new GetOriginalUrlQueryHandler(_cache, _repository, new FakeTimeProvider(Now), new RedirectCachePolicy(DefaultTtl), _metrics);
+        _listener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (ReferenceEquals(instrument.Meter, _metrics.Meter))
+            {
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        _listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == "result")
+                {
+                    _lookups.Add((string)tag.Value!);
+                }
+            }
+        });
+        _listener.Start();
         _cache.GetAsync(Arg.Any<ShortCode>(), Arg.Any<CancellationToken>()).Returns((RedirectTarget?)null);
         _repository.FindAsync(Arg.Any<ShortCode>(), Arg.Any<CancellationToken>()).Returns((RedirectTarget?)null);
+    }
+
+    public void Dispose()
+    {
+        _listener.Dispose();
+        _metrics.Dispose();
     }
 
     private static ShortCode ParsedCode(string value = Code) => ShortCode.Create(value).Value;
@@ -162,5 +190,33 @@ public sealed class GetOriginalUrlQueryHandlerTests
         Target(Now).IsExpired(Now).ShouldBeTrue();
         Target(Now).IsExpired(Now.AddSeconds(-1)).ShouldBeFalse();
         Target(null).IsExpired(Now.AddYears(50)).ShouldBeFalse();
+    }
+
+    // ---- cache metrics ----
+
+    [Fact]
+    public async Task Handle_CacheHit_CountsOneHit()
+    {
+        _cache.GetAsync(ParsedCode(), Arg.Any<CancellationToken>()).Returns(Target());
+
+        await Query();
+
+        _lookups.ShouldBe(["hit"]);
+    }
+
+    [Fact]
+    public async Task Handle_CacheMiss_CountsOneMissEvenWhenTheCodeDoesNotExist()
+    {
+        await Query();
+
+        _lookups.ShouldBe(["miss"]);
+    }
+
+    [Fact]
+    public async Task Handle_MalformedCode_CountsNothingBecauseTheCacheIsNeverConsulted()
+    {
+        await Query("abc");
+
+        _lookups.ShouldBeEmpty();
     }
 }
