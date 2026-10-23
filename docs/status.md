@@ -2,7 +2,7 @@
 
 Where the implementation stands and how to pick it up again. The plan is in [`technical-design.md`](technical-design.md) (§8 lists the phases); this file records **progress, open decisions and what comes next**. Update it at the end of every phase, in the same PR.
 
-**Last updated:** 2026-10-15 · **Current position:** Phases 0–6 are merged (6e pending merge). **Phase 6 is complete. Next: Phase 7 (Docker, compose, deploy).**
+**Last updated:** 2026-10-15 · **Current position:** Phases 0–7c are merged; 7d (React UI) is in review. Next: the Linux box setup, then Phase 8.
 
 ## Phases
 
@@ -19,7 +19,7 @@ Where the implementation stands and how to pick it up again. The plan is in [`te
 | 4c | Read Api: `GET /{code}` 302/404/410, single-flight, bounded pool | ✅ done | #9 |
 | 5 | Gateway: YARP routes, rate limiting, trusted proxies, body limit | ✅ done | #10 |
 | 6 | Observability & hardening (6a metrics, 6b OpenTelemetry, 6c readiness, 6d OpenAPI/Scalar, 6e Redis resilience) | ✅ done | #12–#17 |
-| 7 | Packaging & deploy (Dockerfiles, compose, GHCR, systemd) | ⏭ **next** | – |
+| 7 | Packaging & deploy (7a Dockerfiles, 7b compose, 7c GHCR + systemd, 7d React UI) | 7a–7c ✅ (#18–#20), 7d in review | #21 |
 | 8 | Load check (k6/bombardier), p50/p99 | ⬜ not started | – |
 
 Both services and the Gateway work end to end in tests. Nothing has been containerised or deployed yet.
@@ -48,6 +48,7 @@ Both services and the Gateway work end to end in tests. Nothing has been contain
 - **7a Dockerfiles: DONE (PR pending)** for gateway, write, read (multi-stage, non-root `USER $APP_UID`, port 8080, build context = repo root, `.dockerignore`). Guarded locally by `ArchitectureTests/DockerfileTests` (project files copied, non-root, publish target) and built for real by the `docker-build` job in ci.yml. The aspnet image has **no curl/wget**: compose healthchecks must use bash, e.g. `bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /health/ready HTTP/1.0\r\n\r\n" >&3 && head -1 <&3 | grep -q 200'`.
 - **7b `docker-compose.yml` + `.env.example` + `scripts/smoke.sh`: DONE (PR pending)** (Postgres 17 with the roles applied by `deploy/postgres/10-roles.sh`, Redis 8.6 with AOF, Jaeger 2.22 for traces, Prometheus 3.15 with the OTLP receiver for metrics; per-signal OTLP endpoints now supported in ServiceDefaults). Verified by the CI job `compose-smoke` (full stack + smoke test on every PR). 
 - **7c Publish and deploy files: DONE (PR pending):** `publish.yml` (after a green CI push on main: three images to GHCR, tags `latest` and `sha-<7>`), `deploy/docker-compose.prod.yml`, `deploy/update.sh`, systemd service and timer, `deploy/.env.example`, CI job `compose-config` (validity + drift check). Setup steps for the Linux box are in `docs/deployment.md`. **Not verifiable before the first merge:** the publish run and pulling the images on the box (GHCR packages start private).
+- **7d React UI: DONE (PR pending).** `web/` (Vite + React 19 + TypeScript, Vitest + Testing Library; exact versions in `web/package-lock.json`), `web/Dockerfile` (node build, nginx-unprivileged), `nginx.conf.template` (proxies `/api/*` to the Gateway), `web` service in both compose files (`WEB_BIND`/`WEB_PORT`, default 127.0.0.1:3000), CI job `web`, fourth image in `docker-build`/`publish.yml`, UI checks in `scripts/smoke.sh`. Form only (URL, alias, expiry, copy); no link list because the API has no list endpoint. **Known gap:** UI users share one Gateway rate-limit bucket (see `docs/deployment.md`). **After the first publish:** make `urlshortener-web` public in GHCR too.
 - Wire `deploy/postgres/roles.sql` into the Postgres init (fill the `{{...}}` placeholders from `.env`; letters and digits only in passwords). Write connects as `urlshortener_write`, Read as `urlshortener_read`.
 - **Postgres `max_connections`** must exceed the sum of the pools (Read pool defaults to 32, Write to Npgsql's 100 unless set in the connection string).
 - `publish.yml` (main only, after CI): push to GHCR with `GITHUB_TOKEN`.

@@ -31,7 +31,7 @@ public sealed partial class DeploymentFilesTests
     }
 
     [Fact]
-    public void ProdCompose_UsesTheThreeImagesThatTheWorkflowPublishes_WithARollbackTag()
+    public void ProdCompose_UsesTheFourImagesThatTheWorkflowPublishes_WithARollbackTag()
     {
         var compose = Read("deploy/docker-compose.prod.yml");
         var publish = Read(".github/workflows/publish.yml");
@@ -42,6 +42,7 @@ public sealed partial class DeploymentFilesTests
         [
             "ghcr.io/papaggeorge/urlshortener-gateway",
             "ghcr.io/papaggeorge/urlshortener-read-service",
+            "ghcr.io/papaggeorge/urlshortener-web",
             "ghcr.io/papaggeorge/urlshortener-write-service",
         ]);
         foreach (var image in used)
@@ -53,14 +54,16 @@ public sealed partial class DeploymentFilesTests
     }
 
     [Fact]
-    public void ProdCompose_PublishesOnlyTheGatewayAndTheObservabilityUis_BoundToConfigurableAddresses()
+    public void ProdCompose_PublishesOnlyTheGatewayTheWebUiAndTheObservabilityUis_BoundToConfigurableAddresses()
     {
         var compose = Read("deploy/docker-compose.prod.yml");
 
         var ports = Regex.Matches(compose, @"^\s*-\s*""([^""]+:[^""]+:\d+)""", RegexOptions.Multiline).Select(m => m.Groups[1].Value).ToArray();
 
-        ports.Length.ShouldBe(3);
-        ports.ShouldAllBe(p => p.StartsWith("${GATEWAY_BIND:-127.0.0.1}") || p.StartsWith("${OBSERVABILITY_BIND:-127.0.0.1}"));
+        ports.Length.ShouldBe(4);
+        ports.ShouldAllBe(p => p.StartsWith("${GATEWAY_BIND:-127.0.0.1}")
+            || p.StartsWith("${WEB_BIND:-127.0.0.1}")
+            || p.StartsWith("${OBSERVABILITY_BIND:-127.0.0.1}"));
     }
 
     [Fact]

@@ -45,6 +45,7 @@ tests/
   UrlShortener.{Write,Read}Service.IntegrationTests/
   UrlShortener.Gateway.Tests/
   UrlShortener.ArchitectureTests/
+web/                                # React UI (Vite + TypeScript), own package.json, not in the .sln
 docs/  deploy/  .github/workflows/
 ```
 

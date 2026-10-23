@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # End-to-end check of the running stack through the Gateway: create -> redirect -> cache -> alias -> unknown -> expire.
-# Usage: scripts/smoke.sh [base-url]   (default http://127.0.0.1:8080). Needs only bash and curl. Never run on the dev Mac's Docker: there is none.
+# Usage: scripts/smoke.sh [gateway-url] [web-url]   (defaults http://127.0.0.1:8080; the web UI is checked only when a web-url or WEB_URL is given). Needs only bash and curl. Never run on the dev Mac's Docker: there is none.
 set -euo pipefail
 
 BASE="${1:-${BASE_URL:-http://127.0.0.1:8080}}"
+WEB="${2:-${WEB_URL:-}}"
 failures=0
 
 check() { # description, expected, actual
@@ -48,6 +49,17 @@ expiring="$(echo "$response" | head -n1 | code_of)"
 check "expiring url redirects before it expires" 302 "$(status "$BASE/$expiring")"
 sleep 5
 check "expired url returns 410" 410 "$(status "$BASE/$expiring")"
+
+if [ -n "$WEB" ]; then
+  check "web UI serves the app shell" 200 "$(status "$WEB/")"
+  check "web UI shell has the React root" 1 "$(curl -s "$WEB/" | grep -c 'id="root"')"
+  check "web UI falls back to the shell for unknown paths" 200 "$(status "$WEB/some/path")"
+  check "web UI never lets the shell be cached" "no-cache" "$(curl -s -D - -o /dev/null "$WEB/" | tr -d '\r' | sed -n 's/^[Cc]ache-[Cc]ontrol: //p')"
+  # /api/urls on the web origin is proxied to the Gateway's POST /urls
+  web_response="$(curl -s -w '\n%{http_code}' -X POST "$WEB/api/urls" -H 'Content-Type: application/json' -d "{\"originalUrl\":\"$target\"}")"
+  check "create through the web UI proxy returns 201" 201 "$(echo "$web_response" | tail -n1)"
+  check "web UI proxy returns the short URL" 7 "$(echo "$web_response" | head -n1 | code_of | wc -c | tr -d ' ' | awk '{print $1-1}')"
+fi
 
 if [ "$failures" -gt 0 ]; then echo "$failures check(s) failed"; exit 1; fi
 echo "all checks passed"
