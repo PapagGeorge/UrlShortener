@@ -31,6 +31,30 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release
 
+  # The React UI: tests and a production build (type check included). Node is only ever needed here and in the image build.
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
   # Proves every Dockerfile builds (linux/amd64, same as the published images). Nothing is pushed.
   docker-build:
     runs-on: ubuntu-latest
@@ -40,10 +64,16 @@ jobs:
         include:
           - name: gateway
             dockerfile: src/Gateway/Dockerfile
+            context: .
           - name: write-service
             dockerfile: src/Services/WriteService/Dockerfile
+            context: .
           - name: read-service
             dockerfile: src/Services/ReadService/Dockerfile
+            context: .
+          - name: web
+            dockerfile: web/Dockerfile
+            context: web
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +82,7 @@ jobs:
       - name: Build ${{ matrix.name }}
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: false
@@ -84,7 +114,7 @@ jobs:
         run: docker compose up -d --build --wait --wait-timeout 300
 
       - name: Smoke test
-        run: scripts/smoke.sh
+        run: scripts/smoke.sh http://127.0.0.1:8080 http://127.0.0.1:3000
 
       - name: Show the logs when something failed
         if: failure()

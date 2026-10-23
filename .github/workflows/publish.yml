@@ -1,6 +1,6 @@
 name: Publish
 
-# Builds the three images (linux/amd64) and pushes them to GHCR, only after CI passed on a push to main.
+# Builds the four images (linux/amd64) and pushes them to GHCR, only after CI passed on a push to main.
 # The Linux box pulls them (deploy/update.sh): GitHub never connects to it.
 on:
   workflow_run:
@@ -29,10 +29,16 @@ jobs:
         include:
           - image: urlshortener-gateway
             dockerfile: src/Gateway/Dockerfile
+            context: .
           - image: urlshortener-write-service
             dockerfile: src/Services/WriteService/Dockerfile
+            context: .
           - image: urlshortener-read-service
             dockerfile: src/Services/ReadService/Dockerfile
+            context: .
+          - image: urlshortener-web
+            dockerfile: web/Dockerfile
+            context: web
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,7 +59,7 @@ jobs:
       - name: Build and push ${{ matrix.image }}
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: true

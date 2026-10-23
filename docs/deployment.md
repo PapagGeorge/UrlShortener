@@ -22,6 +22,7 @@ Ubuntu x86 box ◀──── docker compose pull (systemd timer) ────�
 | `ghcr.io/papaggeorge/urlshortener-gateway` | `src/Gateway/Dockerfile` |
 | `ghcr.io/papaggeorge/urlshortener-write-service` | `src/Services/WriteService/Dockerfile` |
 | `ghcr.io/papaggeorge/urlshortener-read-service` | `src/Services/ReadService/Dockerfile` |
+| `ghcr.io/papaggeorge/urlshortener-web` | `web/Dockerfile` (build context `web/`) |
 
 - Tags: `sha-<short-sha>` and `latest`. GHCR names must be lowercase.
 - Multi-stage builds: `mcr.microsoft.com/dotnet/sdk:10.0` → `mcr.microsoft.com/dotnet/aspnet:10.0`, running as a non-root user.
@@ -30,7 +31,7 @@ Ubuntu x86 box ◀──── docker compose pull (systemd timer) ────�
 ## GitHub Actions
 
 - **`ci.yml`**: runs on every PR and on push to `main`, on `ubuntu-latest`: restore → build (warnings as errors) → all tests, including Testcontainers.
-- **`publish.yml`**: runs on push to `main` only, after CI succeeds (`workflow_run`, or `needs:` in the same workflow). It runs `docker/login-action` (GHCR, `GITHUB_TOKEN`), then `docker/build-push-action` with `platforms: linux/amd64` for the three images, using the GitHub Actions build cache.
+- **`publish.yml`**: runs on push to `main` only, after CI succeeds (`workflow_run`, or `needs:` in the same workflow). It runs `docker/login-action` (GHCR, `GITHUB_TOKEN`), then `docker/build-push-action` with `platforms: linux/amd64` for the four images, using the GitHub Actions build cache.
 - Permissions default to `contents: read`. Only the publish job gets `packages: write`.
 - **Never** use `pull_request_target`. **Never** use `runs-on: self-hosted`. The repo is public, and fork PRs must not be able to run code on our machines.
 - Pin actions to a major version (e.g. `actions/checkout@v4`).
@@ -47,8 +48,8 @@ Ubuntu x86 box ◀──── docker compose pull (systemd timer) ────�
 ## Compose stack (`docker-compose.yml`, for the Linux box)
 
 - `docker-compose.yml` builds the images from source (SIT and the CI smoke test); `deploy/docker-compose.prod.yml` pulls the published ones. CI checks that the two never drift apart (`scripts/check-compose-drift.sh`).
-- Services: `gateway`, `read-service`, `write-service`, `postgres`, `redis`, `jaeger`, `prometheus`.
-- Only the gateway and the UIs (Jaeger, Prometheus) expose ports. The services talk over the internal network.
+- Services: `web`, `gateway`, `read-service`, `write-service`, `postgres`, `redis`, `jaeger`, `prometheus`.
+- Only the gateway, the web UI (`WEB_BIND`/`WEB_PORT`, default `127.0.0.1:3000`) and the observability UIs (Jaeger, Prometheus) expose ports. The services talk over the internal network.
 - Integration tests mark themselves `[Trait("Category", "Integration")]`. They are the only tests that need a Docker daemon.
 
 ## Running integration tests
@@ -87,7 +88,7 @@ sudo cp /opt/urlshortener/deploy/urlshortener-update.* /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now urlshortener-update.timer
 ```
 
-- **GHCR visibility:** the first `publish.yml` run creates the packages as *private*. Either make the three packages public (GitHub profile, Packages, each package, Settings, Change visibility; the images contain no secrets) or run `docker login ghcr.io` as `deploy` with a token that has only `read:packages`.
+- **GHCR visibility:** the first `publish.yml` run creates the packages as *private*. Either make the four packages public (GitHub profile, Packages, each package, Settings, Change visibility; the images contain no secrets) or run `docker login ghcr.io` as `deploy` with a token that has only `read:packages`.
 - The Postgres roles (`deploy/postgres/10-roles.sh`) are applied only on an **empty** data volume. Changing the passwords later means `docker compose down -v`, which erases the data.
 - Check the timer: `systemctl list-timers urlshortener-update.timer` and `journalctl -u urlshortener-update.service -n 50`.
 
@@ -98,3 +99,12 @@ sudo systemctl daemon-reload && sudo systemctl enable --now urlshortener-update.
 - CI needs no secrets. Publishing uses the built-in `GITHUB_TOKEN`.
 - Locally, use `dotnet user-secrets`.
 - Never log secrets or full connection strings.
+
+## Web UI (`web/`)
+
+React + TypeScript (Vite), tests with Vitest and Testing Library. Not part of the .NET solution; it has its own `package.json`.
+
+- **Container**: `node:22-alpine` builds the app, `nginx-unprivileged` serves it on 8080 (non-root). nginx proxies `/api/*` to the Gateway (`API_UPSTREAM`, default `gateway:8080`) with the prefix removed, so the browser talks to one origin and the backend needs no CORS.
+- **Develop on the Mac** (Node only, no Docker): `cd web && npm ci && npm run dev`. The dev server proxies `/api` to `http://localhost:8080`; point `API_TARGET` at the Linux box (or an SSH tunnel to its Gateway port) to use a real backend. `npm test` runs the tests.
+- **CI**: the `web` job runs `npm ci`, `npm test` and `npm run build`; `docker-build` builds the image; `compose-smoke` also checks the UI shell and the `/api` proxy (`scripts/smoke.sh <gateway-url> <web-url>`).
+- **Rate limit**: the Gateway sees the UI container's address, not the visitor's, because `ForwardedHeaders` trusts no proxy by default. All UI users therefore share one rate-limit bucket (30 creates/min). Direct calls to the Gateway are unaffected. To fix it, give the web container a fixed address and set `ForwardedHeaders__KnownProxies__0` on the Gateway (see `docs/status.md`).
